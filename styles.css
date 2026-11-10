@@ -135,3 +135,31 @@ body.locked .app{display:none}
 .play .pa{font-weight:600}
 .tpl{padding:6px;display:flex;flex-direction:column;gap:5px;align-items:center;flex:none;font:500 12px var(--body);color:var(--ink)}
 .tpl canvas{border-radius:5px;pointer-events:none}
+
+/* refresh */
+body{background:radial-gradient(1100px 480px at 88% -12%,var(--soft),transparent 62%) fixed,var(--bg)}
+.rail{background:var(--panel);gap:16px;padding:22px 16px}
+nav a{padding:8px 10px;border-radius:10px;transition:background .15s}
+nav a b{width:22px;height:22px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;font-size:11px;flex:none}
+nav a.on b{border-color:var(--accent-ink)}
+nav a.done:not(.on) b{background:var(--good);border-color:var(--good);color:var(--panel)}
+main{padding-top:34px}
+section>div:first-child{border-left:4px solid var(--accent);padding-left:14px}
+section>div:first-child h2{font-size:30px;letter-spacing:-.01em;margin-bottom:4px}
+.card{border-radius:16px;padding:20px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 26px -20px rgba(0,0,0,.35)}
+button{transition:border-color .15s,background .15s,filter .15s,transform .05s;border-radius:10px}
+button:active:not(:disabled){transform:translateY(1px)}
+button.pri{box-shadow:0 8px 18px -10px var(--accent)}
+button.pri:hover:not(:disabled){filter:brightness(1.08)}
+input[type=text],input[type=url],input[type=password],textarea,select{font:15px var(--body);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px;width:100%;transition:border-color .15s,box-shadow .15s}
+input[type=text]:focus,input[type=url]:focus,input[type=password]:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 24%,transparent);outline:none}
+.thumb,.tpl{border-radius:12px;background:var(--bg)}
+.thumb:hover,.tpl:hover{border-color:var(--accent)}
+.edstage{background:repeating-conic-gradient(var(--soft) 0 25%,transparent 0 50%) 0 0/22px 22px,var(--bg);border-radius:14px}
+.pill{background:var(--bg)}
+.tools{display:flex;gap:8px}
+.tools button{flex:1}
+.score{font:800 44px var(--display);line-height:1;color:var(--accent)}
+.score small{font:500 14px var(--body);color:var(--muted)}
+.tplgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px;max-height:560px;overflow:auto;padding:4px}
+.tplgrid .tpl{font-size:11px;text-align:center}
