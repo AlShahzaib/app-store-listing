@@ -6,15 +6,20 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const LS={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 
 /* ---------- settings, projects, state ---------- */
-let CFG=Object.assign({key:"",model:"",models:[]},LS.get("sls-cfg",{}));
+let CFG=LS.get("sls-cfg",{});
+if(!CFG.keys)CFG={prov:"gemini",keys:{gemini:CFG.key||"",openai:"",claude:""},models:{gemini:CFG.model||"",openai:"",claude:""},lists:{gemini:CFG.models||[],openai:[],claude:[]}};
+const PROV={gemini:{n:"Gemini",url:"https://aistudio.google.com/apikey",link:"Get a Gemini key at Google AI Studio",note:"Gemini has a free tier. Sign in with a Google account and create a key; no card needed."},
+  openai:{n:"ChatGPT",url:"https://platform.openai.com/api-keys",link:"Get an OpenAI API key at platform.openai.com",note:"OpenAI API keys are paid: you add prepaid credit on platform.openai.com. A ChatGPT Plus subscription does not include API access."},
+  claude:{n:"Claude",url:"https://console.anthropic.com/settings/keys",link:"Get a Claude API key in the Anthropic Console",note:"Claude API keys are paid: you add prepaid credit in the Anthropic Console. A Claude Pro subscription does not include API access."}};
+const KEY=()=>CFG.keys[CFG.prov]||"",MODEL=()=>CFG.models[CFG.prov]||"",PN=()=>PROV[CFG.prov].n;
 let PROJ=LS.get("sls-projects",[]),PID=LS.get("sls-cur","");
 const DEF={
   example:true,
   brief:{name:"ScanSwift",category:"Tools",
     features:"Scan QR codes and all common barcodes with the camera\nScan from a photo in the gallery\nCreate QR codes for links, Wi-Fi, contacts and text\nScan history with search and favorites\nFlashlight and zoom for low light\nBatch scan mode",
     keywords:"qr code scanner, barcode scanner, qr reader, qr code generator",audience:"Everyday Android users",tone:"Clear and friendly"},
-  brand:{c1:"#0B6E4F",c2:"#12B886",text:"#FFFFFF",font:"Poppins"},
-  comps:[{url:"",text:""},{url:"",text:""},{url:"",text:""}],
+  brand:{c1:"#0B6E4F",c2:"#12B886",text:"#FFFFFF",hl:"#FFD54A",font:"Poppins"},
+  comps:[],
   analysis:null,
   listing:{title:"ScanSwift QR & Barcode Scanner",short:"Scan any QR code or barcode in a second. Create and save your own QR codes.",
     full:"ScanSwift is a fast QR code scanner and barcode scanner for Android. Point the camera, and the result appears at once.\n\nWHAT YOU CAN DO\n• Scan QR codes and all common barcode formats\n• Scan a code from any photo in your gallery\n• Create QR codes for links, Wi-Fi, contacts and text\n• Find old scans quickly with history, search and favorites\n• Scan in the dark with the built-in flashlight and zoom\n• Scan many codes in a row with batch mode\n\nThis is example text. Fill in your own brief, add competitors, then press Generate listing text.",
@@ -23,7 +28,8 @@ const DEF={
   fg:{h:"",s:"",layout:"split",icon:true,hs:100,ss:100,ds:100},
   sel:0,
   shots:[{h:"Scan any code instantly",s:"QR and all barcode formats"},{h:"Create your own QR codes",s:"Links, Wi-Fi, contacts and text"},{h:"Every scan saved",s:"Search history and favorites"},{h:"Works in low light",s:"Flashlight and zoom built in"},{h:"Scan from your gallery",s:"Pick any photo with a code"},{h:"Batch scan mode",s:"Scan many codes in a row"}],
-  style:{dev:"phone",layout:"top",tablet:"l",alt:false,fstyle:"dark",pano:false,bgt:"gradient",dim:45,photo:false},
+  style:{dev:"phone",layout:"top",tablet:"l",alt:false,fstyle:"dark",fcol:"#2F6FED",d3:"none",pano:false,bgt:"gradient",dim:45,photo:false},
+  review:null,pkg:"",puwhat:"all",
   loc:{base:"en-US",cur:"en-US",list:["en-US"],data:{}}
 };
 function blank(){const s=structuredClone(DEF);s.example=false;s.brief={name:"",category:"",features:"",keywords:"",audience:"",tone:"Clear and friendly"};s.listing={title:"",short:"",full:"",titles:[],shorts:[]};s.shots=Array.from({length:6},()=>({h:"",s:""}));s.icon.letter="";return s}
@@ -32,11 +38,17 @@ if(!PROJ.length){PID=uid();PROJ=[{id:PID,name:"ScanSwift (example)"}];LS.set("sl
 if(!PROJ.some(p=>p.id===PID)){PID=PROJ[0].id;LS.set("sls-cur",PID)}
 let S=merge(LS.get("sls-p-"+PID,null));
 while(S.shots.length<6)S.shots.push({h:"",s:""});
+S.comps=(S.comps||[]).filter(c=>c&&(c.url||c.text)).map(c=>{if(!c.pkg){const m=/id=([A-Za-z0-9_.]+)/.exec(c.url||"");c.pkg=m?m[1]:""}if(c.st==="read"||c.st==="wait")c.st="";c.text=c.text||"";return c});
+const isTxt=e=>e.t==="text"||e.t==="pill";
 S.shots.forEach(sh=>{if(!sh.id)sh.id=uid()});
 if(!(S.sel>=0&&S.sel<S.shots.length))S.sel=0;
 if(!S.loc.list.includes(S.loc.base))S.loc.list.unshift(S.loc.base);if(!S.loc.list.includes(S.loc.cur))S.loc.cur=S.loc.base;
 let saveT=0;
-function saveNow(){LS.set("sls-p-"+PID,S);const p=PROJ.find(x=>x.id===PID),n=S.brief.name||"Untitled app";if(p&&p.name!==n&&!S.example){p.name=n;LS.set("sls-projects",PROJ);projOpts()}}
+const HIST=[];let HI=-1;
+function histUI(){const u=$("#undo"),r=$("#redo");if(u){u.disabled=HI<=0;r.disabled=HI>=HIST.length-1}}
+function snap(){const j=JSON.stringify(S);if(HIST[HI]===j)return;HIST.splice(HI+1);HIST.push(j);if(HIST.length>40)HIST.shift();HI=HIST.length-1;histUI()}
+function hist(d){clearTimeout(saveT);const n=HI+d;if(n<0||n>=HIST.length)return;HI=n;S=JSON.parse(HIST[HI]);LS.set("sls-p-"+PID,S);SELEL=null;fill();langOpts();buildComps();buildShots();drawAnalysis();drawReview();loadSvgs();if($("#screens").classList.contains("on"))buildTpls();refresh();histUI()}
+function saveNow(){snap();LS.set("sls-p-"+PID,S);const p=PROJ.find(x=>x.id===PID),n=S.brief.name||"Untitled app";if(p&&p.name!==n&&!S.example){p.name=n;LS.set("sls-projects",PROJ);projOpts()}}
 function save(){clearTimeout(saveT);saveT=setTimeout(saveNow,400)}
 const get=p=>p.split(".").reduce((o,k)=>o==null?o:o[k],S);
 function set(p,v){const ks=p.split("."),l=ks.pop();ks.reduce((o,k)=>o[k],S)[l]=v}
@@ -45,7 +57,7 @@ function fill(root=document){$$("[data-k]",root).forEach(el=>{const v=get(el.dat
 const LOCALES=[["en-US","English (US)"],["en-GB","English (UK)"],["ur","Urdu"],["hi-IN","Hindi"],["ar","Arabic"],["bn-BD","Bengali"],["fa","Persian"],["es-ES","Spanish (Spain)"],["es-419","Spanish (Latin America)"],["pt-BR","Portuguese (Brazil)"],["pt-PT","Portuguese (Portugal)"],["fr-FR","French"],["de-DE","German"],["it-IT","Italian"],["nl-NL","Dutch"],["pl-PL","Polish"],["ru-RU","Russian"],["uk","Ukrainian"],["tr-TR","Turkish"],["id","Indonesian"],["ms","Malay"],["fil","Filipino"],["vi","Vietnamese"],["th","Thai"],["ja-JP","Japanese"],["ko-KR","Korean"],["zh-CN","Chinese (Simplified)"],["zh-TW","Chinese (Traditional)"]];
 const langName=c=>(LOCALES.find(l=>l[0]===c)||[c,c])[1];
 const isRTL=()=>["ar","ur","fa"].includes(S.loc.cur.split("-")[0]);
-const LAYK=["tx","ty","dx","dy","hs","ss","ds","rot","tc","c1","c2","frame","al","lay"];
+const LAYK=["tx","ty","dx","dy","hs","ss","ds","rot","tc","c1","c2","frame","al","lay","d3"];
 
 /* ---------- images kept in IndexedDB ---------- */
 let DBP=null;
@@ -66,7 +78,8 @@ async function loadImages(){await Promise.all(imgKeys().map(async k=>{const b=aw
 function mk(w,h){const c=document.createElement("canvas");c.width=Math.round(w);c.height=Math.round(h);return c}
 function rr(ctx,x,y,w,h,r){r=Math.max(0,Math.min(r,w/2,h/2));ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
 function STACK(){const c=S.loc.cur,cjk=c==="zh-TW"?'"Noto Sans TC"':c==="zh-CN"?'"Noto Sans SC"':c==="ko-KR"?'"Noto Sans KR"':'"Noto Sans JP"';return '"Noto Sans Arabic", "Noto Sans Devanagari", "Noto Sans Bengali", "Noto Sans Thai", '+cjk+', "Segoe UI", sans-serif'}
-function font(px,w){const f=S.brand.font;const wt=f==="DM Serif Display"?400:(w||(f==="Poppins"?700:800));return wt+" "+px+'px "'+f+'", '+STACK()}
+const FONTW={"Poppins":700,"Bricolage Grotesque":800,"DM Serif Display":400,"Montserrat":800,"Bebas Neue":400,"Playfair Display":800,"Rubik":700,"Oswald":700};
+function font(px,w){const f=S.brand.font;const wt=FONTW[f]||700;return wt+" "+px+'px "'+f+'", '+STACK()}
 function bodyFont(px){return '500 '+px+'px "Poppins", '+STACK()}
 function wrap(ctx,text,maxW){const words=String(text).trim().split(/\s+/).filter(Boolean),lines=[];let l="";
   for(let w of words){
@@ -92,17 +105,28 @@ const MOCK={};
 function mock(i){if(MOCK[i])return MOCK[i];const c=mk(540,1170),x=c.getContext("2d");x.fillStyle="#F6F7F5";x.fillRect(0,0,540,1170);x.fillStyle="#DDE2DC";x.fillRect(0,0,540,96);
   x.fillStyle="#C4CBC3";for(let r=0;r<6;r++){rr(x,36,150+r*150,468,118,18);x.fill()}
   x.fillStyle="#6B756E";x.font='600 30px "Poppins",sans-serif';x.textAlign="center";x.fillText("Your screenshot "+(i+1),270,62);MOCK[i]=c;return c}
-function device(ctx,img,bx,by,bw,bh,alignTop,frame){
+function device(ctx,img,bx,by,bw,bh,alignTop,frame,noShadow){
   const iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height;const a=clamp(iw/ih,.42,1.9);
   let w=bw,h=w/a;if(h>bh){h=bh;w=h*a}const x=bx+(bw-w)/2,y=alignTop?by:by+(bh-h)/2;
   let fs=S.style.fstyle||"dark";const fr=frame??(fs!=="none");if(fs==="none")fs="dark";
   const m=Math.min(w,h),r=m*.1,b=fr?m*.032:0;
-  ctx.save();if(!(fr&&fs==="outline")){ctx.shadowColor="rgba(0,0,0,.32)";ctx.shadowBlur=m*.09;ctx.shadowOffsetY=m*.035}rr(ctx,x,y,w,h,r);ctx.fillStyle=!fr?"#fff":fs==="light"?"#F1F2F4":fs==="outline"?"rgba(255,255,255,.16)":"#0E1013";ctx.fill();ctx.restore();
+  ctx.save();if(!noShadow&&!(fr&&fs==="outline")){ctx.shadowColor="rgba(0,0,0,.32)";ctx.shadowBlur=m*.09;ctx.shadowOffsetY=m*.035}rr(ctx,x,y,w,h,r);ctx.fillStyle=!fr?"#fff":fs==="light"?"#F1F2F4":fs==="outline"?"rgba(255,255,255,.16)":fs==="custom"?(S.style.fcol||"#2F6FED"):fs==="clay"?"#E8E3DB":"#0E1013";ctx.fill();ctx.restore();
   ctx.save();rr(ctx,x+b,y+b,w-2*b,h-2*b,Math.max(r-b,m*.04));ctx.clip();ctx.fillStyle="#fff";ctx.fillRect(x,y,w,h);cover(ctx,img,x+b,y+b,w-2*b,h-2*b);ctx.restore();
   if(fr&&fs==="outline"){ctx.save();rr(ctx,x,y,w,h,r);ctx.strokeStyle=S.brand.text;ctx.lineWidth=m*.009;ctx.stroke();ctx.restore()}}
+function device3d(ctx,img,bx,by,bw,bh,frame,mode,scale){
+  const off=mk(bw,bh);device(off.getContext("2d"),img,0,0,bw,bh,false,frame,true);
+  const sil=mk(bw,bh),sx=sil.getContext("2d");sx.drawImage(off,0,0);sx.globalCompositeOperation="source-in";sx.fillStyle="#0A0C0F";sx.fillRect(0,0,bw,bh);
+  const T=Math.max(4,bw*.024);
+  if(mode==="iso"){ctx.save();ctx.translate(bx+bw/2,by+bh/2);ctx.transform(.9,.17,-.3,.9,0,0);ctx.shadowColor="rgba(0,0,0,.3)";ctx.shadowBlur=bw*.08;ctx.shadowOffsetY=bw*.04;ctx.drawImage(sil,-bw/2+T,-bh/2+T);ctx.shadowColor="transparent";
+    for(let k=T;k>0;k-=1.5)ctx.drawImage(sil,-bw/2+k,-bh/2+k);ctx.drawImage(off,-bw/2,-bh/2);ctx.restore();return}
+  const c=.8,kf=.8,left=mode==="left",step=Math.max(2,1.5/(scale||1)),x0=bx+bw*(1-c)/2,hl=bh*(left?1:kf),hr=bh*(left?kf:1);
+  ctx.save();ctx.shadowColor="rgba(0,0,0,.34)";ctx.shadowBlur=bw*.08;ctx.shadowOffsetY=bw*.035;ctx.fillStyle="#0A0C0F";ctx.beginPath();const m=bw*.06;ctx.moveTo(x0+m,by+(bh-hl)/2+m);ctx.lineTo(x0+bw*c-m,by+(bh-hr)/2+m);ctx.lineTo(x0+bw*c-m,by+(bh+hr)/2-m);ctx.lineTo(x0+m,by+(bh+hl)/2-m);ctx.closePath();ctx.fill();ctx.restore();
+  const warp=(src,ox)=>{for(let s=0;s<bw;s+=step){const t=s/bw,sc=left?1-(1-kf)*t:kf+(1-kf)*t,dh=bh*sc;ctx.drawImage(src,s,0,step,bh,x0+ox+s*c,by+(bh-dh)/2,step*c+.8,dh)}};
+  for(let k=T;k>0;k-=Math.max(2,step*.6))warp(sil,left?k:-k);warp(off,0)}
 function textBlock(ctx,head,sub,x,y,w,h,align,u,o){
   o=o||{};const hs=(o.hs||100)/100,ss=(o.ss||100)/100;ctx.direction=isRTL()?"rtl":"ltr";
-  const H=fit(ctx,head||" ",w,3,Math.round(u*.086*hs),Math.round(u*.044*hs),px=>font(px));
+  const HW=[];{let on=false;for(let wd of String(head||"").trim().split(/\s+/).filter(Boolean)){let f=on;if(wd.startsWith("*")){f=on=true;wd=wd.slice(1)}const m=/^(.*?)\*([.,!?:;]*)$/.exec(wd);if(m){wd=m[1]+m[2];on=false;f=true}if(wd)HW.push({w:wd,f})}}
+  const H=fit(ctx,HW.map(x=>x.w).join(" ")||" ",w,3,Math.round(u*.086*hs),Math.round(u*.044*hs),px=>font(px));
   const subPx=Math.round(Math.max(H.size*.46,u*.03)*ss);ctx.font=bodyFont(subPx);const SL=sub?wrap(ctx,sub,w).slice(0,2):[];
   const bpx=Math.round(Math.max(u*.028,subPx*.85)),bh=o.badge?bpx*2.1:0,bgap=bh?bpx*.8:0;
   const lh=H.size*1.14,slh=subPx*1.35,gap=sub?H.size*.3:0,total=bh+bgap+H.lines.length*lh+gap+SL.length*slh;
@@ -110,13 +134,20 @@ function textBlock(ctx,head,sub,x,y,w,h,align,u,o){
   if(bh){ctx.font=bodyFont(bpx);const bw=Math.min(w,ctx.measureText(o.badge).width+bpx*1.8),bx=align==="center"?x+(w-bw)/2:align==="right"?x+w-bw:x;
     ctx.save();ctx.globalAlpha=.2;rr(ctx,bx,ty,bw,bh,bh/2);ctx.fill();ctx.restore();ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(o.badge,bx+bw/2,ty+bh/2+bpx*.06,bw-bpx);ty+=bh+bgap}
   ctx.textAlign=align;ctx.textBaseline="top";const tx=align==="center"?x+w/2:align==="right"?x+w:x;
-  ctx.font=font(H.size);for(const l of H.lines){ctx.fillText(l,tx,ty);ty+=lh}
+  ctx.font=font(H.size);const col=ctx.fillStyle;let wi=0;
+  for(const l of H.lines){const lw=l.split(" ");
+    if(!isRTL()&&HW.some(x=>x.f)&&lw.every((x,k)=>HW[wi+k]&&HW[wi+k].w===x)){let sx=align==="center"?x+(w-ctx.measureText(l).width)/2:align==="right"?x+w-ctx.measureText(l).width:x;ctx.textAlign="left";
+      lw.forEach((x,k)=>{ctx.fillStyle=HW[wi+k].f?(S.brand.hl||"#FFD54A"):col;ctx.fillText(x,sx,ty);sx+=ctx.measureText(x+" ").width});ctx.fillStyle=col;ctx.textAlign=align}
+    else ctx.fillText(l,tx,ty);
+    wi+=lw.length;ty+=lh}
   ty+=gap;ctx.font=bodyFont(subPx);ctx.globalAlpha=.88;for(const l of SL){ctx.fillText(l,tx,ty);ty+=slh}ctx.globalAlpha=1}
 let SELEL=null;
 function drawEls(ctx,sh,W,H,back,edit,boxes){const u=Math.min(W,H);
   (sh.els||[]).forEach(e=>{if(!!e.back!==back)return;const x=e.x*W,y=e.y*H;let bw=0,bh=0;
     ctx.save();ctx.translate(x,y);ctx.rotate((e.rot||0)*Math.PI/180);ctx.globalAlpha=(e.o??100)/100;ctx.fillStyle=e.c||S.brand.text;
     if(e.t==="text"||e.t==="emoji"){const px=(e.s||.06)*u;ctx.font=e.t==="emoji"?px+'px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif':font(px);ctx.textAlign="center";ctx.textBaseline="middle";ctx.direction=isRTL()?"rtl":"ltr";const t=e.tx||(e.t==="emoji"?"⭐":"Text");bw=ctx.measureText(t).width;bh=px*1.2;ctx.fillText(t,0,0)}
+    else if(e.t==="pill"){const px=(e.s||.035)*u,t=e.tx||"Label";ctx.font=bodyFont(px).replace("500 ","700 ");ctx.direction=isRTL()?"rtl":"ltr";bw=ctx.measureText(t).width+px*1.9;bh=px*2.1;const bc=e.c||"#FFFFFF";rr(ctx,-bw/2,-bh/2,bw,bh,bh/2);ctx.fillStyle=bc;ctx.fill();
+      const n=parseInt(bc.slice(1),16),lum=(.299*(n>>16&255)+.587*(n>>8&255)+.114*(n&255))/255;ctx.fillStyle=lum>.6?"#14181C":"#FFFFFF";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(t,0,px*.06)}
     else if(e.t==="rect"){bw=(e.w||.3)*W;bh=(e.h||.1)*W;rr(ctx,-bw/2,-bh/2,bw,bh,Math.min(bw,bh)*(e.r??20)/100);ctx.fill()}
     else if(e.t==="circle"){bw=bh=(e.s||.2)*u;ctx.beginPath();ctx.arc(0,0,bw/2,0,7);ctx.fill()}
     else if(e.t==="img"){const im=IMGS[K("e:"+e.id)];bw=(e.w||.3)*W;bh=im?bw*im.naturalHeight/im.naturalWidth:bw;if(im)ctx.drawImage(im,-bw/2,-bh/2,bw,bh);else{ctx.globalAlpha=.3;ctx.fillRect(-bw/2,-bh/2,bw,bh)}}
@@ -133,7 +164,7 @@ function renderShot(i,W,H,scale,edit){
   T[0]+=(sh.tx||0)*W;T[1]+=(sh.ty||0)*H;D[0]+=(sh.dx||0)*W;D[1]+=(sh.dy||0)*H;
   drawEls(ctx,sh,W,H,true,edit,E);
   const cx=D[0]+D[2]/2,cy=D[1]+D[3]/2,ds=(sh.ds||100)/100;
-  ctx.save();ctx.translate(cx,cy);ctx.rotate((sh.rot||0)*Math.PI/180);ctx.scale(ds,ds);ctx.translate(-cx,-cy);device(ctx,img,D[0],D[1],D[2],D[3],false,sh.frame);ctx.restore();
+  ctx.save();ctx.translate(cx,cy);ctx.rotate((sh.rot||0)*Math.PI/180);ctx.scale(ds,ds);ctx.translate(-cx,-cy);const d3=sh.d3||S.style.d3||"none";if(d3!=="none")device3d(ctx,img,D[0],D[1],D[2],D[3],sh.frame,d3,scale);else device(ctx,img,D[0],D[1],D[2],D[3],false,sh.frame);ctx.restore();
   textBlock(ctx,sh.h,sh.s,T[0],T[1],T[2],T[3],al,port?u:u*1.05,{hs:sh.hs,ss:sh.ss,color:sh.tc,badge:sh.b});
   drawEls(ctx,sh,W,H,false,edit,E);
   c.rects={T,D,E};return c}
@@ -176,18 +207,32 @@ const TPL=[
   {n:"Big screen",st:{layout:"top",fstyle:"dark",pano:false,alt:false,bgt:"gradient"},sl:()=>({ds:128,dy:.12,hs:112})},
   {n:"Panorama",st:{layout:"top",fstyle:"light",pano:true,alt:false,bgt:"gradient"},sl:i=>({dy:i%2?.03:-.01})},
   {n:"Bold type",st:{layout:"top",fstyle:"dark",pano:false,alt:false,bgt:"lines"},sl:()=>({hs:140,ds:88,dy:.05,al:"left"})},
-  {n:"Clean light",st:{layout:"top",fstyle:"light",pano:false,alt:false,bgt:"solid"},sl:()=>({c1:"#F3F4F6",c2:"#F3F4F6",tc:"#14181C"})},
-  {n:"Dark pro",st:{layout:"top",fstyle:"outline",pano:false,alt:false,bgt:"gradient"},sl:()=>({c1:"#0E1116",c2:"#1D2633",tc:"#FFFFFF"})},
+  {n:"3D turn",st:{layout:"top",fstyle:"dark",pano:false,alt:false,bgt:"gradient"},sl:i=>({d3:i%2?"right":"left",ds:114})},
+  {n:"3D showcase",st:{layout:"top",fstyle:"dark",pano:true,alt:false,bgt:"gradient"},sl:()=>({d3:"left",ds:122,dx:.03,dy:.03,hs:108})},
+  {n:"Isometric",st:{layout:"top",fstyle:"dark",pano:false,alt:false,bgt:"dots"},sl:()=>({d3:"iso",ds:90,dy:.02})},
+  {n:"Clay",st:{layout:"top",fstyle:"clay",pano:false,alt:false,bgt:"solid"},sl:()=>({})},
+  {n:"Clay 3D",st:{layout:"bottom",fstyle:"clay",pano:false,alt:false,bgt:"gradient"},sl:i=>({d3:i%2?"left":"right",ds:112})},
   {n:"Up and down",st:{layout:"top",fstyle:"dark",pano:false,alt:true,bgt:"gradient"},sl:i=>({lay:i%2?"bottom":"top"})},
   {n:"Frameless cards",st:{layout:"top",fstyle:"none",pano:false,alt:false,bgt:"dots"},sl:()=>({ds:96})},
   {n:"Zigzag",st:{layout:"top",fstyle:"dark",pano:true,alt:false,bgt:"gradient"},sl:i=>({dx:i%2?.05:-.05,rot:i%2?-4:4,ds:98})},
-  {n:"Grid tech",st:{layout:"bottom",fstyle:"outline",pano:false,alt:false,bgt:"grid"},sl:()=>({hs:108})}
+  {n:"Grid tech",st:{layout:"bottom",fstyle:"outline",pano:false,alt:false,bgt:"grid"},sl:()=>({hs:108})},
+  {n:"Clean light",fixed:true,st:{layout:"top",fstyle:"light",pano:false,alt:false,bgt:"solid"},sl:()=>({c1:"#F3F4F6",c2:"#F3F4F6",tc:"#14181C"})},
+  {n:"Dark pro",fixed:true,st:{layout:"top",fstyle:"outline",pano:false,alt:false,bgt:"gradient"},sl:()=>({c1:"#0E1116",c2:"#1D2633",tc:"#FFFFFF"})}
 ];
-function applyTpl(t,only){S.shots.forEach((sh,i)=>{if(only!==undefined&&only!==i)return;for(const k of LAYK)delete sh[k];Object.assign(sh,t.sl(i))});Object.assign(S.style,t.st)}
-function buildTpls(){const keepShots=JSON.stringify(S.shots.map(sh=>{const o={};LAYK.forEach(k=>{if(sh[k]!==undefined)o[k]=sh[k]});return o})),keepSt=JSON.stringify(S.style);
-  const box=$("#tpls");box.innerHTML="";
-  TPL.forEach((t,ti)=>{applyTpl(t);const b=document.createElement("button");b.type="button";b.className="tpl";b.dataset.tpl=ti;const c=renderShot(1,1080,1920,96/1080);b.append(c,document.createTextNode(t.n));box.append(b);
-    const sv=JSON.parse(keepShots);S.shots.forEach((sh,i)=>{for(const k of LAYK)delete sh[k];Object.assign(sh,sv[i])});S.style=JSON.parse(keepSt)})}
+const PALS=[["Emerald","#0B6E4F","#12B886","#FFFFFF","#FFD54A"],["Ocean","#0B4F8A","#1E9BE9","#FFFFFF","#FFE066"],["Royal","#3B2A9C","#6C4DF2","#FFFFFF","#FFD166"],["Sunset","#C2410C","#F59E0B","#FFFFFF","#FFF3B0"],["Rose","#9D174D","#EC4899","#FFFFFF","#FFE4A3"],["Crimson","#7F1D1D","#DC2626","#FFFFFF","#FFD27A"],["Midnight","#0B1220","#1E293B","#FFFFFF","#38BDF8"],["Graphite","#1F2933","#4B5563","#FFFFFF","#FBBF24"],["Teal","#0F766E","#2DD4BF","#FFFFFF","#FDE68A"],["Grape","#581C87","#A855F7","#FFFFFF","#FDE047"],["Mono","#111111","#2B2B2B","#FFFFFF","#A3E635"],["Sky light","#DCEEFF","#F4F9FF","#0B2545","#1D6FE0"],["Sand","#F3E9D8","#FBF6EC","#3B2F1E","#C2410C"],["Mint light","#DDF5EA","#F3FBF7","#0B3B2A","#0B8F5A"]].map(p=>({n:p[0],c1:p[1],c2:p[2],text:p[3],hl:p[4]}));
+function applyTpl(t){S.shots.forEach((sh,i)=>{for(const k of LAYK)delete sh[k];Object.assign(sh,t.sl(i))});Object.assign(S.style,{d3:"none"},t.st)}
+function applyPal(p){Object.assign(S.brand,{c1:p.c1,c2:p.c2,text:p.text,hl:p.hl});S.shots.forEach(sh=>{delete sh.c1;delete sh.c2;delete sh.tc})}
+function withTemp(t,pal,fn){const ks=JSON.stringify(S.shots.map(sh=>{const o={};LAYK.forEach(k=>{if(sh[k]!==undefined)o[k]=sh[k]});return o})),kst=JSON.stringify(S.style),kb=JSON.stringify(S.brand);
+  if(t)applyTpl(t);if(pal)applyPal(pal);const r=fn();const sv=JSON.parse(ks);S.shots.forEach((sh,i)=>{for(const k of LAYK)delete sh[k];Object.assign(sh,sv[i])});S.style=JSON.parse(kst);S.brand=JSON.parse(kb);return r}
+function tplBtn(ti,pi){const t=TPL[ti],pal=pi>=0?PALS[pi]:null,b=document.createElement("button");b.type="button";b.className="tpl";b.dataset.tpl=ti;if(pal)b.dataset.pal=pi;
+  b.append(withTemp(t,pal,()=>renderShot(1,1080,1920,96/1080)),document.createTextNode(pal?t.n+" · "+pal.n:t.n));return b}
+const tplJobs=()=>{const j=[];TPL.forEach((t,ti)=>{if(t.fixed)j.push([ti,-1]);else PALS.forEach((p,pi)=>j.push([ti,pi]))});return j};
+function buildTpls(){const box=$("#tpls");box.innerHTML="";TPL.forEach((t,i)=>box.append(tplBtn(i,-1)));
+  $("#pals").innerHTML=PALS.map((p,i)=>'<button type="button" class="chip" data-pal="'+i+'"><span style="display:inline-block;width:34px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:6px;border:1px solid var(--line);background:linear-gradient(90deg,'+p.c1+","+p.c2+')"></span>'+p.n+"</button>").join("");
+  $("#tplcount").textContent=TPL.length+" layouts × "+PALS.length+" color themes = "+tplJobs().length+" combinations";if(!$("#tplall").hidden)browseAll()}
+let browseRun=0;
+function browseAll(){const g=$("#tplall"),jobs=tplJobs(),me=++browseRun;g.hidden=false;g.innerHTML="";let k=0;
+  const run=()=>{if(me!==browseRun||g.hidden)return;for(let n=0;n<6&&k<jobs.length;n++,k++)g.append(tplBtn(jobs[k][0],jobs[k][1]));if(k<jobs.length)requestAnimationFrame(run)};run()}
 
 /* ---------- text checks ---------- */
 const PROMO=/\b(best|top|no\.?\s?1|number one|free|new|sale|discount|award|million|billion|download now|install now|update now|play now|try now)\b|#\s?1/i;
@@ -227,12 +272,12 @@ function drawShots(){const k=S.style.dev,[W,H]=devSize(k);const sc=(H>=W?120:200
   $("#t7size").textContent=t7.join(" x ");$("#t10size").textContent=t10.join(" x ")}
 const curEl=()=>((S.shots[S.sel]||{}).els||[]).find(e=>e.id===SELEL)||null;
 function fillEl(){const e=curEl(),p=$("#elpanel");p.hidden=!e;if(!e)return;
-  $("#el-name").textContent="Selected: "+({text:"text",rect:"box",circle:"circle",emoji:"emoji",img:"image"}[e.t]);
+  $("#el-name").textContent="Selected: "+({text:"text",pill:"label",rect:"box",circle:"circle",emoji:"emoji",img:"image"}[e.t]);
   $$("[data-for]",p).forEach(l=>l.style.display=l.dataset.for.split(" ").includes(e.t)?"":"none");
-  const d={tx:e.tx||"",s:Math.round((e.s||.06)*100),w:Math.round((e.w||.3)*100),h:Math.round((e.h||.1)*100),r:e.r??20,rot:e.rot||0,o:e.o??100,c:e.c||S.brand.text,back:!!e.back};
+  const d={tx:e.tx||"",s:Math.round((e.s||(e.t==="pill"?.035:.06))*100),w:Math.round((e.w||.3)*100),h:Math.round((e.h||.1)*100),r:e.r??20,rot:e.rot||0,o:e.o??100,c:e.c||(e.t==="pill"?"#FFFFFF":S.brand.text),back:!!e.back};
   $$("[data-el]",p).forEach(el=>{const v=d[el.dataset.el];if(el.type==="checkbox")el.checked=!!v;else el.value=v})}
 function selEl(id){if(SELEL===id)return;SELEL=id;fillEl()}
-function fillEditor(){const sh=S.shots[S.sel]||{},d={hs:100,ss:100,ds:100,rot:0,tc:S.brand.text,c1:S.brand.c1,c2:S.brand.c2,frame:(S.style.fstyle||"dark")!=="none",al:"",lay:"",h:"",s:"",b:""};
+function fillEditor(){const sh=S.shots[S.sel]||{},d={hs:100,ss:100,ds:100,rot:0,tc:S.brand.text,c1:S.brand.c1,c2:S.brand.c2,frame:(S.style.fstyle||"dark")!=="none",al:"",lay:"",d3:"",h:"",s:"",b:""};
   $$("[data-e]").forEach(el=>{const k=el.dataset.e,v=sh[k]??d[k];if(el.type==="checkbox")el.checked=!!v;else el.value=v});
   const hasL=!!(sh.iml&&sh.iml[S.loc.cur]);$("#ed-limg").textContent="Image for "+langName(S.loc.cur)+" only";$("#ed-lrm").hidden=!hasL;
   $("#ed-title").textContent="Editor · slot "+String(S.sel+1).padStart(2,"0");$("#ed-del").disabled=S.shots.length<=6;$("#ed-dup").disabled=S.shots.length>=8;$("#ed-prev").disabled=S.sel===0;$("#ed-next").disabled=S.sel===S.shots.length-1;
@@ -251,9 +296,32 @@ function pickShot(x,y){const sh=S.shots[S.sel],R=EDR;if(!R)return null;const inR
   for(let k=R.E.length-1;k>=0;k--)if(inR(R.E[k].b)){const e=(sh.els||[]).find(z=>z.id===R.E[k].id);if(e){selEl(e.id);return{obj:e,kx:"x",ky:"y",abs:true,guide:true}}}
   selEl(null);if(inR(R.T))return{obj:sh,kx:"tx",ky:"ty",guide:true};if(inR(R.D))return{obj:sh,kx:"dx",ky:"dy",guide:true};return null}
 function pickFG(x,y){const R=FGR;if(!R)return null;const inR=B=>B&&x>=B[0]&&x<=B[0]+B[2]&&y>=B[1]&&y<=B[1]+B[3];if(inR(R.T))return{obj:S.fg,kx:"tx",ky:"ty"};if(inR(R.D))return{obj:S.fg,kx:"dx",ky:"dy"};return null}
-function buildComps(){
-  $("#comps").innerHTML=S.comps.map((c,i)=>'<div class="card"><div class="head"><h3>Competitor '+(i+1)+(c.name?" · "+esc(c.name):"")+'</h3><span class="rowf">'+({wait:'<span class="pill">waiting</span>',read:'<span class="pill warn">reading now</span>',ok:'<span class="pill good">read</span>',fail:'<span class="pill bad">could not read</span>'}[c.st]||"")+'<span class="count" id="cp-c-'+i+'">'+(c.text.length?c.text.length.toLocaleString()+" chars":"no text yet")+'</span></span></div><label>Play Store link<input type="url" id="cp-u-'+i+'" data-k="comps.'+i+'.url" placeholder="https://play.google.com/store/apps/details?id=..."></label><label>Listing text<textarea id="cp-t-'+i+'" data-k="comps.'+i+'.text" rows="4" placeholder="Filled by Read listings, or paste the page text here"></textarea></label></div>').join("")+(S.comps.length<5?'<div class="card" style="align-items:flex-start"><h3>Add another</h3><button type="button" id="addcomp">Add competitor</button></div>':"");
-  fill($("#comps"))}
+function buildComps(){const box=$("#comps");if(!box)return;
+  if(!S.comps.length){box.innerHTML='<div class="card"><h3>No competitors yet</h3><p class="status">Paste a Play Store link in the box above, or press Find top apps for my main keyword.</p></div>';return}
+  box.innerHTML=S.comps.map((c,i)=>{const m=c.meta||{},has=c.text.trim().length>=80;
+    const pill={wait:'<span class="pill">link added · waiting to read</span>',read:'<span class="pill warn">reading now</span>',fail:has?'<span class="pill good">data ready</span>':'<span class="pill bad">could not read · paste the page text below</span>'}[c.st]||(has?'<span class="pill good">data ready</span>':'<span class="pill">link added · not read yet</span>');
+    return '<div class="card"><div class="head"><h3>'+(i+1)+". "+esc(m.title||c.name||c.pkg||"Competitor")+"</h3>"+pill+'</div><p class="status">'+(c.url?'<a href="'+esc(c.url)+'" target="_blank" rel="noopener">'+esc(c.pkg||c.url)+"</a>":"no link")+"</p>"+
+      (m.title?'<div class="chips"><span class="kw">'+esc(m.developer||"developer unknown")+'</span><span class="kw">rating '+esc(m.rating||"unknown")+'</span><span class="kw">'+esc(m.installs||"installs unknown")+"</span></div>":"")+
+      '<label>Listing text <span class="count" id="cp-c-'+i+'">'+(c.text.length?c.text.length.toLocaleString()+" chars":"no text yet")+'</span><textarea id="cp-t-'+i+'" data-k="comps.'+i+'.text" rows="4" placeholder="Filled automatically from the link. If reading fails, open the page, press Ctrl+A then Ctrl+C, and paste here."></textarea></label><div class="rowf"><button class="sm" type="button" data-cread="'+i+'"'+(KEY()&&c.url?"":" disabled")+'>Read again</button><button class="sm" type="button" data-cdel="'+i+'">Remove</button></div></div>'}).join("");
+  fill(box)}
+function addLinks(str){const st=$("#an-status"),ids=[...String(str).matchAll(/id=([A-Za-z0-9_.]+)/g)].map(m=>m[1]);
+  if(!ids.length){st.textContent="That is not a Google Play app link. It should look like https://play.google.com/store/apps/details?id=com.example.app";return}
+  let added=0,dup=0,full=0;for(const pkg of ids){if(S.comps.some(c=>c.pkg===pkg)){dup++;continue}if(S.comps.length>=5){full++;continue}S.comps.push({url:"https://play.google.com/store/apps/details?id="+pkg,pkg,text:"",st:"wait"});added++}
+  $("#cp-new").value="";save();buildComps();
+  st.textContent=(added?added+" link"+(added>1?"s":"")+" added ("+S.comps.length+" of 5). ":"")+(dup?dup+" already in the list. ":"")+(full?"The limit is 5 competitors. ":"")+(added?(KEY()?"Reading the listing now.":"Connect an AI provider in Settings to read it automatically, or paste the page text into the card."):"");
+  if(added&&KEY())readQueue()}
+let READING=false;
+async function readQueue(){if(READING)return;READING=true;const st=$("#an-status");let ok=0,n=0;
+  try{for(;;){const c=S.comps.find(x=>x.st==="wait"&&x.url);if(!c)break;while(BUSY)await new Promise(r=>setTimeout(r,400));if(!S.comps.includes(c)||c.st!=="wait")continue;
+    n++;c.st="read";buildComps();
+    const p="Open this Google Play page and read it: "+c.url+"&hl=en&gl=US\n\nReply with only one JSON object and no other text:\n{\"title\":\"store title\",\"developer\":\"developer name\",\"rating\":\"for example 4.5, or empty\",\"installs\":\"for example 10M+, or empty\",\"short\":\"the one-line tagline, or empty\",\"description\":\"the full About this app description text\",\"whatsNew\":\"the What's new text, or empty\"}\nUse \\n for line breaks inside strings. If you cannot open the page, reply with exactly {\"error\":\"FETCH_FAILED\"}";
+    const v=await ask($("#fetchall"),st,p,{web:"fetch"},"Reading "+(c.name||c.pkg)+" ("+n+")");
+    if(v&&typeof v==="object"&&!v.error&&String(v.description||"").length>80){c.meta={title:String(v.title||""),developer:String(v.developer||""),rating:String(v.rating||""),installs:String(v.installs||"")};c.name=c.meta.title;
+      c.text="Title: "+c.meta.title+"\nDeveloper: "+c.meta.developer+"\nRating: "+c.meta.rating+"\nInstalls: "+c.meta.installs+"\nShort description: "+String(v.short||"")+"\nDescription:\n"+String(v.description)+(v.whatsNew?"\n\nWhat's new:\n"+String(v.whatsNew):"");c.st="ok";ok++}
+    else c.st=JOB.cancel?"":"fail";
+    save();buildComps();if(JOB.cancel){S.comps.forEach(x=>{if(x.st==="wait")x.st=""});buildComps();break}}}
+  finally{READING=false}
+  if(n&&!JOB.cancel)st.textContent=ok===n?"All "+n+" listing"+(n>1?"s":"")+" read. Press Analyze competitors.":ok+" of "+n+" read. For the ones marked could not read, paste the page text into the card. Then press Analyze competitors."}
 function drawAnalysis(){
   const a=S.analysis,el=$("#analysis");
   if(!a){el.innerHTML='<div class="card"><h3>No analysis yet</h3><p class="status">Add competitor links or text and press Analyze. You get the keywords they share, where they place them, their title patterns, the selling points in their screenshots and gaps your app can use.</p></div>';return}
@@ -291,9 +359,9 @@ function drawPlay(){const box=$("#play");if(!$("#export").classList.contains("on
 
 /* ---------- languages ---------- */
 function stash(){const c=S.loc.cur,L=S.listing;S.loc.data[c]={title:L.title,short:L.short,full:L.full,titles:L.titles||[],shorts:L.shorts||[],fh:S.fg.h,fs:S.fg.s};
-  S.shots.forEach(sh=>{(sh.tr||(sh.tr={}))[c]={h:sh.h||"",s:sh.s||"",b:sh.b||""};(sh.els||[]).forEach(e=>{if(e.t==="text")(e.tr||(e.tr={}))[c]=e.tx||""})})}
+  S.shots.forEach(sh=>{(sh.tr||(sh.tr={}))[c]={h:sh.h||"",s:sh.s||"",b:sh.b||""};(sh.els||[]).forEach(e=>{if(isTxt(e))(e.tr||(e.tr={}))[c]=e.tx||""})})}
 function loadLang(c){const d=S.loc.data[c]||{},L=S.listing;L.title=d.title||"";L.short=d.short||"";L.full=d.full||"";L.titles=d.titles||[];L.shorts=d.shorts||[];S.fg.h=d.fh||"";S.fg.s=d.fs||"";
-  S.shots.forEach(sh=>{const t=(sh.tr&&sh.tr[c])||{};sh.h=t.h||"";sh.s=t.s||"";if(t.b)sh.b=t.b;else delete sh.b;(sh.els||[]).forEach(e=>{if(e.t==="text"&&e.tr&&e.tr[c]!==undefined)e.tx=e.tr[c]})});S.loc.cur=c}
+  S.shots.forEach(sh=>{const t=(sh.tr&&sh.tr[c])||{};sh.h=t.h||"";sh.s=t.s||"";if(t.b)sh.b=t.b;else delete sh.b;(sh.els||[]).forEach(e=>{if(isTxt(e)&&e.tr&&e.tr[c]!==undefined)e.tx=e.tr[c]})});S.loc.cur=c}
 async function ensureFonts(){if(!document.fonts||!document.fonts.load)return;const t=[S.listing.title,S.listing.short,S.fg.h,S.fg.s].concat(S.shots.flatMap(x=>[x.h,x.s,x.b].concat((x.els||[]).map(e=>e.tx)))).filter(Boolean).join(" ")||"A";try{await Promise.all([document.fonts.load(font(40),t),document.fonts.load(bodyFont(20),t)])}catch(e){}}
 function afterLang(){save();fill();langOpts();buildShots();refresh();ensureFonts().then(refresh)}
 function switchLang(c){if(c===S.loc.cur||!S.loc.list.includes(c))return;stash();loadLang(c);afterLang()}
@@ -307,49 +375,58 @@ function langOpts(){
 function langStat(c){if(c===S.loc.cur)return{t:S.listing.title.length,s:S.listing.short.length,f:S.listing.full.length,cap:S.shots.filter(x=>x.h).length};const d=S.loc.data[c]||{};return{t:(d.title||"").length,s:(d.short||"").length,f:(d.full||"").length,cap:S.shots.filter(x=>x.tr&&x.tr[c]&&x.tr[c].h).length}}
 function drawLangs(){const n=S.shots.length,cell=(v,max)=>'<td class="n"><span class="count'+(v>max||!v?" over":"")+'">'+v+" / "+max+"</span></td>";
   $("#lg-table").innerHTML="<tr><th>Language</th><th>Play code</th><th>App name</th><th>Short</th><th>Full</th><th>Captions</th><th></th></tr>"+S.loc.list.map(c=>{const st=langStat(c),base=c===S.loc.base;
-    return "<tr><td>"+esc(langName(c))+(base?' <span class="pill">main</span>':"")+(c===S.loc.cur?' <span class="pill good">editing</span>':"")+'</td><td class="n">'+c+"</td>"+cell(st.t,30)+cell(st.s,80)+cell(st.f,4000)+'<td class="n">'+st.cap+" / "+n+'</td><td><span class="rowf">'+(c===S.loc.cur?"":'<button class="sm" type="button" data-lgedit="'+c+'">Edit</button>')+(base?"":'<button class="sm" type="button" data-lgtr="'+c+'"'+(CFG.key?"":" disabled")+'>Translate again</button><button class="sm" type="button" data-lgdel="'+c+'">Remove</button>')+"</span></td></tr>"}).join("")}
+    return "<tr><td>"+esc(langName(c))+(base?' <span class="pill">main</span>':"")+(c===S.loc.cur?' <span class="pill good">editing</span>':"")+'</td><td class="n">'+c+"</td>"+cell(st.t,30)+cell(st.s,80)+cell(st.f,4000)+'<td class="n">'+st.cap+" / "+n+'</td><td><span class="rowf">'+(c===S.loc.cur?"":'<button class="sm" type="button" data-lgedit="'+c+'">Edit</button>')+(base?"":'<button class="sm" type="button" data-lgtr="'+c+'"'+(KEY()?"":" disabled")+'>Translate again</button><button class="sm" type="button" data-lgdel="'+c+'">Remove</button>')+"</span></td></tr>"}).join("")}
 let raf=0;
-function refresh(){cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>{drawBrand();drawIcon();drawFG();drawShots();drawText();drawChecklist();drawLangs();drawPlay()})}
+function refresh(){cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>{drawBrand();drawIcon();drawFG();drawShots();drawText();drawChecklist();drawLangs();drawPlay();navState()})}
+function navState(){const L=S.listing,d={brief:!!(S.brief.name&&S.brief.features),competitors:!!S.analysis,text:!!(L.title&&L.title.length<=30&&L.short&&L.short.length<=80&&L.full.length>=600&&L.full.length<=4000),icon:S.icon.mode!=="letter"||!!S.icon.letter,graphic:!!(S.fg.h||L.title),screens:S.shots.filter((_,i)=>I(i)).length>=6,languages:S.loc.list.length>1,export:false,settings:!!KEY()};$$("#nav a").forEach(a=>a.classList.toggle("done",!!d[a.getAttribute("href").slice(1)]))}
+function drawReview(){const r=S.review,el=$("#review-out");if(!el)return;if(!r){el.innerHTML="";return}el.innerHTML='<div class="rowf" style="align-items:flex-end;margin-top:8px"><div class="score">'+esc(r.score)+'<small> / 100</small></div></div><h3 style="margin-top:12px">Working well</h3><ul class="lint">'+(r.strengths||[]).map(x=>"<li>"+esc(x)+"</li>").join("")+'</ul><h3 style="margin-top:12px">Fix these, most important first</h3><div class="tablewrap"><table><tr><th>Area</th><th>Issue</th><th>Change to make</th></tr>'+(r.fixes||[]).map(f=>"<tr><td>"+esc(f.area)+"</td><td>"+esc(f.issue)+"</td><td>"+esc(f.fix)+"</td></tr>").join("")+"</table></div>"}
 
-/* ---------- Gemini ---------- */
+/* ---------- AI providers: Gemini, ChatGPT, Claude ---------- */
 const GAPI="https://generativelanguage.googleapis.com/v1beta/models";
 function parseJSON(t){try{return JSON.parse(t)}catch(e){}const m=t.match(/```(?:json)?\s*([\s\S]*?)```/);if(m){try{return JSON.parse(m[1])}catch(e){}}
   const a=[t.indexOf("{"),t.indexOf("[")].filter(i=>i>=0).sort((x,y)=>x-y)[0],b=Math.max(t.lastIndexOf("}"),t.lastIndexOf("]"));if(a!==undefined&&a<b){try{return JSON.parse(t.slice(a,b+1))}catch(e){}}throw{code:"badjson"}}
 const b64=blob=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(String(f.result).split(",")[1]);f.readAsDataURL(blob)});
+function authHeaders(P,key){const h={"Content-Type":"application/json"};if(P==="gemini")h["x-goog-api-key"]=key;else if(P==="openai")h.Authorization="Bearer "+key;else{h["x-api-key"]=key;h["anthropic-version"]="2023-06-01";h["anthropic-dangerous-direct-browser-access"]="true"}return h}
+async function httpErr(r){let m="";try{const j=await r.json();m=j.error?(j.error.message||JSON.stringify(j.error)):""}catch(e){}return{code:r.status,message:String(m)}}
 let JOB={};
-async function gem(prompt,o){o=o||{};if(!CFG.key||!CFG.model)throw{code:"nokey"};
-  const parts=[{text:prompt}];for(const b of o.images||[])parts.push({inline_data:{mime_type:"image/jpeg",data:await b64(b)}});
-  const body={contents:[{role:"user",parts}]};if(o.tools)body.tools=o.tools;else if(o.json!==false)body.generationConfig={responseMimeType:"application/json"};
+async function gem(prompt,o){o=o||{};const P=CFG.prov,key=KEY(),model=MODEL();if(!key||!model)throw{code:"nokey"};
+  const imgs=[];for(const b of o.images||[])imgs.push(await b64(b));
+  const headers=authHeaders(P,key);let url,body;
+  if(P==="gemini"){url=GAPI+"/"+model+":streamGenerateContent?alt=sse";body={contents:[{role:"user",parts:[{text:prompt}].concat(imgs.map(d=>({inline_data:{mime_type:"image/jpeg",data:d}})))}]};
+    if(o.web)body.tools=o.web==="fetch"?[{url_context:{}}]:[{google_search:{}}];else if(o.json!==false)body.generationConfig={responseMimeType:"application/json"}}
+  else if(P==="openai"){url="https://api.openai.com/v1/responses";body={model,stream:true,input:[{role:"user",content:[{type:"input_text",text:prompt}].concat(imgs.map(d=>({type:"input_image",image_url:"data:image/jpeg;base64,"+d})))}]};if(o.web)body.tools=[{type:"web_search"}]}
+  else{url="https://api.anthropic.com/v1/messages";body={model,max_tokens:8000,stream:true,messages:[{role:"user",content:imgs.map(d=>({type:"image",source:{type:"base64",media_type:"image/jpeg",data:d}})).concat([{type:"text",text:prompt}])}]};
+    if(o.web){body.tools=[{type:"web_search_20250305",name:"web_search",max_uses:4}];if(o.web==="fetch"){body.tools.push({type:"web_fetch_20250910",name:"web_fetch",max_uses:3});headers["anthropic-beta"]="web-fetch-2025-09-10"}}}
   const ctl=new AbortController();JOB.ctl=ctl;let timedOut=false;const to=setTimeout(()=>{timedOut=true;ctl.abort()},240000);
   const fail=()=>({code:JOB.cancel?"cancel":timedOut?"timeout":"net"});
-  let text="",fin="",block="";
+  let text="",note="";
   try{
-    let r;try{r=await fetch(GAPI+"/"+CFG.model+":streamGenerateContent?alt=sse",{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":CFG.key},body:JSON.stringify(body),signal:ctl.signal})}catch(e){throw fail()}
-    if(!r.ok){let m="";try{m=(await r.json()).error.message}catch(e){}throw{code:r.status,message:m}}
+    let r;try{r=await fetch(url,{method:"POST",headers,body:JSON.stringify(body),signal:ctl.signal})}catch(e){throw fail()}
+    if(!r.ok)throw await httpErr(r);
     const rd=r.body.getReader(),dec=new TextDecoder();let buf="";
     for(;;){let ch;try{ch=await rd.read()}catch(e){throw fail()}if(ch.done)break;buf+=dec.decode(ch.value,{stream:true});let i;
-      while((i=buf.indexOf("\n"))>=0){const line=buf.slice(0,i).trim();buf=buf.slice(i+1);if(!line.startsWith("data:"))continue;let j;try{j=JSON.parse(line.slice(5))}catch(e){continue}
-        if(j.error)throw{code:j.error.code,message:j.error.message||""};
-        const c=j.candidates&&j.candidates[0];if(c){text+=((c.content&&c.content.parts)||[]).map(p=>p.thought?"":(p.text||"")).join("");if(c.finishReason)fin=c.finishReason}
-        if(j.promptFeedback&&j.promptFeedback.blockReason)block=j.promptFeedback.blockReason;
+      while((i=buf.indexOf("\n"))>=0){const line=buf.slice(0,i).trim();buf=buf.slice(i+1);if(!line.startsWith("data:"))continue;const d=line.slice(5).trim();if(d==="[DONE]")continue;let j;try{j=JSON.parse(d)}catch(e){continue}
+        if(P==="gemini"){if(j.error)throw{code:j.error.code,message:j.error.message||""};const c=j.candidates&&j.candidates[0];if(c){text+=((c.content&&c.content.parts)||[]).map(x=>x.thought?"":(x.text||"")).join("");if(c.finishReason)note=c.finishReason}if(j.promptFeedback&&j.promptFeedback.blockReason)note=j.promptFeedback.blockReason}
+        else if(P==="openai"){if(j.type==="response.output_text.delta")text+=j.delta||"";else if(j.type==="error"||j.type==="response.failed"){const e=j.error||(j.response&&j.response.error)||j;throw{code:e.code||"api",message:e.message||""}}}
+        else{if(j.type==="content_block_delta"&&j.delta&&j.delta.type==="text_delta")text+=j.delta.text||"";else if(j.type==="error")throw{code:(j.error&&j.error.type)||"api",message:(j.error&&j.error.message)||""}}
         JOB.got=true;if(o.onText)o.onText(text)}}
   }finally{clearTimeout(to)}
-  if(!text.trim())throw{code:"empty",message:block||fin};
+  if(!text.trim())throw{code:"empty",message:note};
   return o.json===false?text:parseJSON(text)}
-function errMsg(e){const c=e&&e.code,m=(e&&e.message)||"";
-  if(c==="nokey")return "Add your Gemini API key in Settings first.";
+function errMsg(e){const c=e&&e.code,m=(e&&e.message)||"",n=PN();
+  if(c==="nokey")return "Connect an AI provider in Settings first.";
   if(c==="cancel")return "Stopped.";
-  if(c==="timeout")return "Gemini took longer than 4 minutes and was stopped. Press the button again, or pick a faster model (Flash-Lite) in Settings.";
-  if(c==="net")return "Could not reach Google. Check your internet connection.";
+  if(c==="timeout")return n+" took longer than 4 minutes and was stopped. Press the button again, or pick a faster model in Settings.";
+  if(c==="net")return "Could not reach "+n+". Check your internet connection. If it keeps failing, this provider may be blocking browser requests; switch provider in Settings.";
   if(c==="badjson")return "The answer came back in a broken format. Press the button again.";
-  if(c==="empty")return "Gemini returned no text"+(m?" ("+m+")":"")+". Try again or change the brief.";
-  if(c===429)return "Gemini quota or rate limit reached for model "+CFG.model+". Wait a minute, or pick another model in Settings.";
-  if(c===400&&/API key/i.test(m))return "Google says the API key is not valid. Check it in Settings.";
-  if(c===403)return "Google refused this key ("+m.slice(0,120)+"). Create a new key in Google AI Studio.";
-  if(c===404)return "Model "+CFG.model+" is not available for this key. Pick another model in Settings.";
-  if(c===500||c===503)return "Gemini is busy right now. Press the button again in a moment.";
-  return "Gemini error "+c+": "+m.slice(0,160)}
-function aiUI(){const on=!!(CFG.key&&CFG.model);$("#aistate").innerHTML='<span class="dot '+(on?"ok":"off")+'"></span>'+(on?"Gemini ready · "+esc(CFG.model):"AI writer off · add key in Settings");document.body.classList.toggle("noai",!on);$$(".needs-ai").forEach(b=>b.disabled=!on)}
+  if(c==="empty")return n+" returned no text"+(m?" ("+m+")":"")+". Try again or change the brief.";
+  if(c===401||(c===400&&/API key/i.test(m))||c==="authentication_error"||c==="invalid_api_key")return n+" says the API key is not valid. Check it in Settings.";
+  if(c===429||c==="insufficient_quota"||c==="rate_limit_error"||/quota|credit balance|billing/i.test(m))return n+" quota, credit or rate limit reached for model "+MODEL()+". "+(CFG.prov==="gemini"?"Wait a minute, or pick another model in Settings.":"Check that the API account has credit, or switch provider in Settings.");
+  if(c===403||c==="permission_error")return n+" refused this request ("+m.slice(0,140)+").";
+  if(c===404||c==="not_found_error"||c==="model_not_found")return "Model "+MODEL()+" is not available for this key. Pick another model in Settings.";
+  if(c===500||c===503||c===529||c==="overloaded_error")return n+" is busy right now. Press the button again in a moment.";
+  return n+" error "+c+": "+m.slice(0,180)}
+function aiUI(){const on=!!(KEY()&&MODEL());$("#aistate").innerHTML='<span class="dot '+(on?"ok":"off")+'"></span>'+(on?esc(PN())+" ready · "+esc(MODEL()):"AI writer off · connect in Settings");document.body.classList.toggle("noai",!on);$$(".needs-ai").forEach(b=>b.disabled=!on)}
 function toast(msg){let el=$("#job");if(!el){el=document.createElement("div");el.id="job";el.setAttribute("role","status");el.style.cssText="position:fixed;right:16px;bottom:16px;z-index:8;max-width:min(440px,calc(100vw - 32px));background:var(--panel);color:var(--ink);border:1px solid var(--accent);border-radius:12px;padding:12px 14px;display:flex;gap:12px;align-items:center;box-shadow:0 8px 28px rgba(0,0,0,.28);font-size:14px";
     el.innerHTML='<span id="job-t" style="flex:1"></span><button type="button" class="sm" id="job-x">Stop</button>';document.body.append(el)}
   el.hidden=!msg;if(msg)$("#job-t").textContent=msg}
@@ -357,42 +434,42 @@ let BUSY=false;
 async function ask(btn,st,prompt,opts,label){
   if(BUSY){toast("Another AI task is still running. Wait for it to finish or press Stop.");return null}
   BUSY=true;const old=btn.textContent,t0=Date.now();JOB={cancel:false,chars:0,got:false};btn.disabled=true;btn.textContent="Working";
-  const tick=()=>{const sec=Math.round((Date.now()-t0)/1000),m=(label||old)+" · "+(JOB.chars?"receiving answer, "+JOB.chars.toLocaleString()+" characters":JOB.got?"Gemini is thinking":"sent, waiting for Gemini")+" · "+sec+"s";st.textContent=m;toast(m)};
+  const tick=()=>{const sec=Math.round((Date.now()-t0)/1000),m=(label||old)+" · "+(JOB.chars?"receiving answer, "+JOB.chars.toLocaleString()+" characters":JOB.got?PN()+" is thinking":"sent, waiting for "+PN())+" · "+sec+"s";st.textContent=m;toast(m)};
   tick();const iv=setInterval(tick,500);
   try{const v=await gem(prompt,Object.assign({},opts,{onText:t=>{JOB.chars=t.length}}));st.textContent="";return v}catch(e){st.textContent=errMsg(e);return null}
-  finally{BUSY=false;clearInterval(iv);toast("");btn.textContent=old;btn.disabled=!CFG.key}}
-async function loadModels(){
-  let r;try{r=await fetch(GAPI+"?pageSize=200",{headers:{"x-goog-api-key":CFG.key}})}catch(e){throw{code:"net"}}
-  if(!r.ok){let m="";try{m=(await r.json()).error.message}catch(e){}throw{code:r.status,message:m}}
-  const j=await r.json();const ms=(j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes("generateContent")).map(m=>m.name.replace("models/","")).filter(n=>/^gemini-/.test(n)&&!/tts|live|image|audio|embedding|robotics|computer|omni|research|native/.test(n));
-  const score=n=>{const v=parseFloat((n.match(/gemini-(\d+(\.\d+)?)/)||[])[1]||0);return v*10+(/flash/.test(n)?5:-6)-(/lite/.test(n)?3:0)-(/preview|exp|latest/.test(n)?4:0)};
-  ms.sort((a,b)=>score(b)-score(a));CFG.models=ms;if(!ms.includes(CFG.model))CFG.model=ms[0]||"";LS.set("sls-cfg",CFG)}
-function cfgUI(){$("#g-key").value=CFG.key;$("#g-model").innerHTML=(CFG.models.length?CFG.models:(CFG.model?[CFG.model]:[])).map(m=>'<option value="'+esc(m)+'">'+esc(m)+"</option>").join("");$("#g-model").value=CFG.model;aiUI()}
-async function saveKey(){const st=$("#g-status"),b=$("#g-save");CFG.key=$("#g-key").value.trim();if(!CFG.key){st.textContent="Paste a key first.";return}
-  b.disabled=true;st.textContent="Checking the key with Google";
-  try{await loadModels();if(!CFG.model)throw{code:404,message:"no text models"};const t=await gem("Reply with the single word OK.",{json:false});st.textContent="Connected. Model "+CFG.model+" answered: "+t.trim().slice(0,20)}
-  catch(e){st.textContent=errMsg(e);if(e.code===400||e.code===403){CFG.key="";}}
+  finally{BUSY=false;clearInterval(iv);toast("");btn.textContent=old;btn.disabled=!KEY()}}
+async function loadModels(){const P=CFG.prov,key=KEY(),h=authHeaders(P,key);delete h["Content-Type"];
+  const url=P==="gemini"?GAPI+"?pageSize=200":P==="openai"?"https://api.openai.com/v1/models":"https://api.anthropic.com/v1/models?limit=100";
+  let r;try{r=await fetch(url,{headers:h})}catch(e){throw{code:"net"}}
+  if(!r.ok)throw await httpErr(r);const j=await r.json();let ms;
+  const ver=n=>parseFloat((n.match(/-(\d+(\.\d+)?)/)||[])[1]||0);
+  if(P==="gemini"){ms=(j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes("generateContent")).map(m=>m.name.replace("models/","")).filter(n=>/^gemini-/.test(n)&&!/tts|live|image|audio|embedding|robotics|computer|omni|research|native/.test(n));
+    const sc=n=>ver(n)*10+(/flash/.test(n)?5:-6)-(/lite/.test(n)?3:0)-(/preview|exp|latest/.test(n)?4:0);ms.sort((a,b)=>sc(b)-sc(a))}
+  else if(P==="openai"){ms=(j.data||[]).map(m=>m.id).filter(n=>/^gpt-\d/.test(n)&&!/audio|realtime|image|tts|transcribe|search|embedding|instruct|codex|chat-latest|\d{4}-\d{2}-\d{2}/.test(n));
+    const sc=n=>ver(n)*10+(/mini/.test(n)?2:0)-(/nano/.test(n)?4:0)-(/pro/.test(n)?6:0);ms.sort((a,b)=>sc(b)-sc(a))}
+  else{ms=(j.data||[]).map(m=>m.id);const sc=n=>(/sonnet/.test(n)?2:/haiku/.test(n)?1:0);ms=ms.map((n,i)=>[n,i]).sort((a,b)=>sc(b[0])-sc(a[0])||a[1]-b[1]).map(x=>x[0])}
+  CFG.lists[P]=ms;if(!ms.includes(CFG.models[P]))CFG.models[P]=ms[0]||"";LS.set("sls-cfg",CFG)}
+function cfgUI(){const P=CFG.prov,list=CFG.lists[P]||[];$("#g-prov").value=P;$("#g-key").value=KEY();$("#g-note").textContent=PROV[P].note;const a=$("#g-link");a.href=PROV[P].url;a.textContent=PROV[P].link;
+  $("#g-model").innerHTML=(list.length?list:(MODEL()?[MODEL()]:[])).map(m=>'<option value="'+esc(m)+'">'+esc(m)+"</option>").join("");$("#g-model").value=MODEL();$("#gp-cid").value=CFG.gcid||"";$("#gp-origin").textContent=location.origin;aiUI();buildComps()}
+async function saveKey(){const st=$("#g-status"),b=$("#g-save"),P=CFG.prov;CFG.keys[P]=$("#g-key").value.trim();if(!KEY()){st.textContent="Paste a key first.";return}
+  b.disabled=true;st.textContent="Checking the key with "+PN();
+  try{await loadModels();if(!MODEL())throw{code:404,message:"no text models"};const t=await gem("Reply with the single word OK.",{json:false});st.textContent="Connected. "+PN()+" model "+MODEL()+" answered: "+t.trim().slice(0,20)}
+  catch(e){st.textContent=errMsg(e)}
   LS.set("sls-cfg",CFG);b.disabled=false;cfgUI();drawLangs()}
 function briefText(){const b=S.brief;return "App name or brand: "+b.name+"\nCategory: "+b.category+"\nFeatures (the app has ONLY these):\n"+b.features+"\nDeveloper's target keywords: "+(b.keywords||"none given")+"\nTarget users: "+b.audience+"\nTone: "+b.tone}
 async function runFindTop(){
   const kw=userKw()[0]||S.brief.category||S.brief.name;if(!kw){$("#an-status").textContent="Add a main keyword in the brief first.";return}
-  const p='Use Google Search to find the Android apps that currently rank highest on Google Play for the search term "'+kw+'"'+(S.brief.category?" in the "+S.brief.category+" category":"")+'. Pick up to 5 real, popular apps with strong ratings'+(S.brief.name?', and leave out any app named "'+S.brief.name+'"':"")+'. Include only apps whose Play Store package id you actually saw in the search results. Reply with only a JSON array and no other text: [{"name":"app name","url":"https://play.google.com/store/apps/details?id=PACKAGE_ID"}]';
-  const v=await ask($("#findtop"),$("#an-status"),p,{tools:[{google_search:{}}]},'Searching Google for top "'+kw+'" apps');
-  if(!Array.isArray(v))return;const found=v.filter(x=>x&&/play\.google\.com\/store\/apps\/details\?id=[\w.]+/.test(String(x.url))).slice(0,5);
-  if(!found.length){$("#an-status").textContent="No Play Store links came back. Add the links by hand.";return}
-  S.comps=found.map(x=>{const old=S.comps.find(c=>c.url===x.url);return{url:String(x.url),name:String(x.name||""),text:old?old.text:""}});save();buildComps();
-  $("#an-status").textContent="Found "+found.length+" apps through Google Search. Check the links, then press Read listings."}
-async function runFetchAll(){const st=$("#an-status"),btn=$("#fetchall"),todo=S.comps.map((c,i)=>i).filter(i=>/^https?:\/\//.test(S.comps[i].url)&&S.comps[i].text.trim().length<80);
-  if(BUSY){toast("Another AI task is still running. Wait for it to finish or press Stop.");return}
-  if(!todo.length){const have=S.comps.filter(c=>c.text.trim().length>=80).length;st.textContent=have?"All "+have+" competitors already have listing text, so there is nothing to read. Press Analyze competitors.":"Add Play Store links first.";return}
-  todo.forEach(i=>S.comps[i].st="wait");buildComps();let ok=0,k=0;
-  for(const i of todo){const c=S.comps[i];k++;if(JOB.cancel&&k>1){c.st="";continue}c.st="read";buildComps();
-    const p="Open this Google Play page and read it: "+c.url+"&hl=en\n\nReturn plain text in exactly this layout:\nTitle: ...\nDeveloper: ...\nRating: ...\nInstalls: ...\nShort description: ...\nDescription:\n(the app's full store description as shown on the page)\n\nIf you cannot open the page, reply with exactly FETCH_FAILED and nothing else.";
-    const v=await ask(btn,st,p,{tools:[{url_context:{}}],json:false},"Reading listing "+k+" of "+todo.length+(c.name?" ("+c.name+")":""));
-    if(typeof v==="string"&&!/FETCH_FAILED/.test(v)&&v.length>120){c.text=v.trim();const m=v.match(/Title:\s*(.+)/);if(m&&!c.name)c.name=m[1].trim().slice(0,40);c.st="ok";ok++}else c.st=JOB.cancel?"":"fail";
-    save();buildComps()}
-  S.comps.forEach(c=>{if(c.st==="wait")c.st=""});buildComps();
-  st.textContent=ok?"Read "+ok+" of "+todo.length+" listings. For any marked could not read, paste the page text by hand. Then press Analyze.":"Gemini could not open the pages. Paste the page text by hand (Ctrl+A, Ctrl+C on the Play page)."}
+  const p='Search the web to find the Android apps that currently rank highest on Google Play for the search term "'+kw+'"'+(S.brief.category?" in the "+S.brief.category+" category":"")+'. Pick up to 5 real, popular apps with strong ratings'+(S.brief.name?', and leave out any app named "'+S.brief.name+'"':"")+'. Include only apps whose Play Store package id you actually saw in the search results. Reply with only a JSON array and no other text: [{"name":"app name","url":"https://play.google.com/store/apps/details?id=PACKAGE_ID"}]';
+  const v=await ask($("#findtop"),$("#an-status"),p,{web:"search"},'Searching the web for top "'+kw+'" apps');
+  if(!Array.isArray(v))return;const found=v.filter(x=>x&&/play\.google\.com\/store\/apps\/details\?id=[\w.]+/.test(String(x.url)));
+  if(!found.length){$("#an-status").textContent="No Play Store links came back. Paste links by hand.";return}
+  let add=0;for(const x of found){const pkg=/id=([A-Za-z0-9_.]+)/.exec(x.url)[1];if(S.comps.length>=5||S.comps.some(c=>c.pkg===pkg))continue;S.comps.push({url:"https://play.google.com/store/apps/details?id="+pkg,pkg,name:String(x.name||""),text:"",st:"wait"});add++}
+  save();buildComps();$("#an-status").textContent=add?add+" apps added from web search. Reading their listings now.":"The apps found are already in your list.";if(add)readQueue()}
+async function runFetchAll(){const n=S.comps.filter(c=>c.url&&c.text.trim().length<80);if(!n.length){$("#an-status").textContent=S.comps.length?"Every competitor already has listing text. Press Analyze competitors.":"Add a Play Store link first.";return}n.forEach(c=>c.st="wait");buildComps();readQueue()}
+async function runReview(){const blobs=[];for(let i=0;i<S.shots.length&&blobs.length<6;i++)blobs.push(await blobOf(renderShot(i,1080,1920,.36),"image/jpeg",.82));
+  const L=S.listing,p="You are a senior ASO reviewer for Google Play. Review this store listing draft. The attached images are the store screenshots, in order.\n\nTITLE: "+L.title+"\nSHORT DESCRIPTION: "+L.short+"\nFULL DESCRIPTION:\n"+L.full.slice(0,4000)+"\n\nTarget keywords: "+allKw().slice(0,10).join(", ")+"\n\nJudge the first-screenshot hook, caption clarity and readability at phone size, variety across screenshots, keyword use in the title, short and full description, and Google metadata policy risks. Be specific and practical. Write in English.\nReply with only JSON: {\"score\":72,\"strengths\":[\"up to 3 short points\"],\"fixes\":[{\"area\":\"Screenshots|Title|Short description|Full description\",\"issue\":\"what is weak\",\"fix\":\"the exact change to make\"}]} with 4 to 7 fixes, most important first. score is 0 to 100.";
+  const v=await ask($("#review"),$("#rv-status"),p,{images:blobs},"Reviewing "+blobs.length+" screenshots and the listing text");
+  if(v&&typeof v==="object"&&!Array.isArray(v)){S.review=v;save();drawReview()}}
 async function runAnalysis(){
   const pasted=S.comps.filter(c=>c.text.trim().length>80);
   const data=pasted.map((c,i)=>"=== COMPETITOR "+(i+1)+" ("+(c.url||"no link")+") ===\n"+c.text.slice(0,7000)).join("\n\n");
@@ -438,11 +515,11 @@ async function runIcon(){
 async function runTranslate(code,btn){
   const st=$("#lg-status");if(!code)return;stash();const b=S.loc.base,src=S.loc.data[b]||{};
   if(!src.title&&!src.full){st.textContent="Write the "+langName(b)+" listing first, then translate.";return}
-  const payload={title:src.title,short:src.short,full:src.full,featureGraphic:{h:src.fh||"",s:src.fs||""},captions:S.shots.map(sh=>{const t=(sh.tr&&sh.tr[b])||{};return{h:t.h||"",s:t.s||"",b:t.b||"",x:(sh.els||[]).filter(e=>e.t==="text").map(e=>(e.tr&&e.tr[b])||e.tx||"")}})};
-  const p="Localize this Google Play store listing from "+langName(b)+" into "+langName(code)+" (Play locale "+code+") for native speakers.\n\nRules: localize, do not translate word for word. Use the search phrases people in that language really type on Google Play for this kind of app, and keep widely used English terms (QR, PDF, Wi-Fi, GPS) when locals search with them. Keep the brand name \""+S.brief.name+"\" unchanged. Title at most 30 characters, short description at most 80, full description at most 4000 with the same structure and line breaks. Caption headline (h) at most 28 characters, sub line (s) at most 44, badge (b) at most 18; x is a list of extra on-image labels, translate each and keep the same count; keep an empty string empty. No emoji in the title, no ranking or price claims, no competitor names. Count characters carefully.\n\nSOURCE (JSON):\n"+JSON.stringify(payload)+"\n\nReply with only one JSON object of exactly the same shape, with exactly "+S.shots.length+" captions in the same order.";
+  const payload={title:src.title,short:src.short,full:src.full,featureGraphic:{h:src.fh||"",s:src.fs||""},captions:S.shots.map(sh=>{const t=(sh.tr&&sh.tr[b])||{};return{h:t.h||"",s:t.s||"",b:t.b||"",x:(sh.els||[]).filter(isTxt).map(e=>(e.tr&&e.tr[b])||e.tx||"")}})};
+  const p="Localize this Google Play store listing from "+langName(b)+" into "+langName(code)+" (Play locale "+code+") for native speakers.\n\nRules: localize, do not translate word for word. Use the search phrases people in that language really type on Google Play for this kind of app, and keep widely used English terms (QR, PDF, Wi-Fi, GPS) when locals search with them. Keep the brand name \""+S.brief.name+"\" unchanged. Title at most 30 characters, short description at most 80, full description at most 4000 with the same structure and line breaks. Keep any *asterisks* around the matching words in headlines. Caption headline (h) at most 28 characters, sub line (s) at most 44, badge (b) at most 18; x is a list of extra on-image labels, translate each and keep the same count; keep an empty string empty. No emoji in the title, no ranking or price claims, no competitor names. Count characters carefully.\n\nSOURCE (JSON):\n"+JSON.stringify(payload)+"\n\nReply with only one JSON object of exactly the same shape, with exactly "+S.shots.length+" captions in the same order.";
   const v=await ask(btn,st,p,null,"Translating the listing and "+S.shots.length+" captions into "+langName(code));if(!v||typeof v!=="object")return;
   S.loc.data[code]={title:String(v.title||""),short:String(v.short||""),full:String(v.full||""),titles:[],shorts:[],fh:String((v.featureGraphic||{}).h||""),fs:String((v.featureGraphic||{}).s||"")};
-  S.shots.forEach((sh,i)=>{const c=(v.captions||[])[i]||{};(sh.tr||(sh.tr={}))[code]={h:String(c.h||""),s:String(c.s||""),b:String(c.b||"")};(sh.els||[]).filter(e=>e.t==="text").forEach((e,k)=>{const t=(c.x||[])[k];if(t)(e.tr||(e.tr={}))[code]=String(t)})});
+  S.shots.forEach((sh,i)=>{const c=(v.captions||[])[i]||{};(sh.tr||(sh.tr={}))[code]={h:String(c.h||""),s:String(c.s||""),b:String(c.b||"")};(sh.els||[]).filter(isTxt).forEach((e,k)=>{const t=(c.x||[])[k];if(t)(e.tr||(e.tr={}))[code]=String(t)})});
   if(!S.loc.list.includes(code))S.loc.list.push(code);if(S.loc.cur===code)loadLang(code);afterLang();st.textContent=langName(code)+" is ready. Choose it under Editing language to review and fine-tune."}
 
 /* ---------- export ---------- */
@@ -463,6 +540,41 @@ async function buildZip(st){
   saveFile(slug()+"-store-listing.zip",blob,st);if(!n)st.textContent+=" No screenshots were included because none are uploaded yet."}
 async function copy(text,btn){try{await navigator.clipboard.writeText(text);const o=btn.textContent;btn.textContent="Copied";setTimeout(()=>btn.textContent=o,1200)}catch(e){btn.textContent="Select and copy by hand"}}
 
+/* ---------- Play Console upload ---------- */
+const PUB="https://androidpublisher.googleapis.com/androidpublisher/v3/applications/",PUBUP="https://androidpublisher.googleapis.com/upload/androidpublisher/v3/applications/";
+let PEND=null;
+function plog(msg,lvl){const li=document.createElement("li");if(lvl)li.className=lvl;li.textContent=msg;$("#pu-log").append(li);li.scrollIntoView({block:"nearest"})}
+function gsi(){return new Promise((res,rej)=>{if(window.google&&google.accounts&&google.accounts.oauth2)return res();const s=document.createElement("script");s.src="https://accounts.google.com/gsi/client";s.onload=()=>res();s.onerror=()=>rej({message:"Could not load Google sign-in. Check your connection or ad blocker."});document.head.append(s)})}
+async function gToken(){await gsi();return new Promise((res,rej)=>{const tc=google.accounts.oauth2.initTokenClient({client_id:CFG.gcid,scope:"https://www.googleapis.com/auth/androidpublisher",callback:r=>r&&r.access_token?res(r.access_token):rej({message:(r&&(r.error_description||r.error))||"Google sign-in failed."}),error_callback:e=>rej({message:(e&&e.message)||"The Google sign-in window was closed."})});tc.requestAccessToken()})}
+async function gp(tok,method,url,body,ctype){const h={Authorization:"Bearer "+tok};let b;if(body instanceof Blob){h["Content-Type"]=ctype;b=body}else if(body){h["Content-Type"]="application/json";b=JSON.stringify(body)}
+  let r;try{r=await fetch(url,{method,headers:h,body:b})}catch(e){throw{message:"Could not reach the Google Play API (network or browser block)."}}
+  let j=null;try{j=await r.json()}catch(e){}if(!r.ok)throw{code:r.status,message:(j&&j.error&&j.error.message)||("HTTP "+r.status)};return j}
+async function playUpload(){const btn=$("#pu-go"),pkg=(S.pkg||"").trim(),what=S.puwhat||"all";$("#pu-log").innerHTML="";$("#pu-send").hidden=true;PEND=null;
+  if(!CFG.gcid){plog("Add your Google OAuth client ID in Settings first.","bad");return}
+  if(!/^[A-Za-z][\w]*(\.[A-Za-z][\w]*)+$/.test(pkg)){plog("Enter the app's package name, for example com.example.app.","bad");return}
+  if(what!=="gfx"&&lint().some(l=>l.lvl==="bad")){plog("Fix the red items in Requirements first; Google would reject this text.","bad");return}
+  btn.disabled=true;stash();const orig=S.loc.cur,base=PUB+pkg+"/edits";let eid="",tok="";
+  try{
+    plog("Opening Google sign-in");tok=await gToken();plog("Signed in");
+    eid=(await gp(tok,"POST",base,{})).id;plog("Draft edit opened for "+pkg);
+    const up=async(code,type,blob,mime)=>gp(tok,"POST",PUBUP+pkg+"/edits/"+eid+"/listings/"+code+"/"+type+"?uploadType=media",blob,mime);
+    for(const code of S.loc.list){loadLang(code);await ensureFonts();const L=S.listing,lp=base+"/"+eid+"/listings/"+code,nm=langName(code);
+      if(what!=="gfx"){if(!L.title||!L.short||!L.full){plog(nm+": listing text is empty, skipped.","warn");continue}
+        await gp(tok,"PUT",lp,{language:code,title:L.title,shortDescription:L.short,fullDescription:L.full});plog(nm+": title and descriptions uploaded")}
+      if(what!=="text"){
+        await gp(tok,"DELETE",lp+"/icon");await up(code,"icon",await blobOf(renderIcon(512),"image/png"),"image/png");
+        await gp(tok,"DELETE",lp+"/featureGraphic");await up(code,"featureGraphic",await blobOf(renderFG(),"image/jpeg",.93),"image/jpeg");plog(nm+": icon and feature graphic uploaded");
+        const idx=S.shots.map((_,i)=>i).filter(i=>I(i)).slice(0,8);
+        if(idx.length<2){plog(nm+": fewer than 2 screenshots uploaded in the studio, screenshots skipped.","warn")}
+        else for(const [k,type] of [["phone","phoneScreenshots"],["t7","sevenInchScreenshots"],["t10","tenInchScreenshots"]]){const [W,H]=devSize(k);await gp(tok,"DELETE",lp+"/"+type);let n=0;for(const i of idx){await up(code,type,await blobOf(renderShot(i,W,H,1),"image/jpeg",.92),"image/jpeg");n++}plog(nm+": "+n+" "+DEV[k].name+" screenshots uploaded")}}}
+    await gp(tok,"POST",base+"/"+eid+":validate");plog("Google validated the draft");
+    try{await gp(tok,"POST",base+"/"+eid+":commit?changesNotSentForReview=true");plog("Saved in Play Console as changes not sent for review. Open Play Console > Publishing overview to check them and send for review.")}
+    catch(e){if(/changesNotSentForReview/i.test(e.message||"")){PEND={tok,url:base+"/"+eid+":commit"};$("#pu-send").hidden=false;plog("This app sends API changes straight to Google review, so nothing has been saved yet. Press Send these changes to Google review to submit them, or leave this page to discard the draft.","warn")}else throw e}
+  }catch(e){plog("Upload stopped: "+((e&&e.message)||"unknown error")+(e&&e.code===403?" The signed-in Google account needs access to this app in Play Console, and the Google Play Android Developer API must be enabled.":"")+(e&&e.code===404?" Check the package name.":"")+" Nothing was changed in Play Console.","bad")}
+  finally{loadLang(orig);fill();refresh();btn.disabled=false}}
+async function playSend(btn){if(!PEND)return;if(!btn.dataset.armed){btn.dataset.armed=1;btn.textContent="Press again to send to Google review";return}
+  btn.disabled=true;try{await gp(PEND.tok,"POST",PEND.url);plog("Sent. The changes are now in Google review.");PEND=null;btn.hidden=true}catch(e){plog("Could not send: "+((e&&e.message)||"unknown error"),"bad")}btn.disabled=false;delete btn.dataset.armed;btn.textContent="Send these changes to Google review"}
+
 /* ---------- projects ---------- */
 function projOpts(){$("#projsel").innerHTML=PROJ.map(p=>'<option value="'+p.id+'">'+esc(p.name)+"</option>").join("");$("#projsel").value=PID}
 function openProj(id){clearTimeout(saveT);saveNow();LS.set("sls-cur",id);location.hash="#brief";location.reload()}
@@ -481,15 +593,22 @@ function delProj(btn){if(!btn.dataset.armed){btn.dataset.armed=1;btn.textContent
 let upMode="slots",upSlot=-1,fontT=0;
 function pickImg(mode,multi){upMode=mode;const f=$("#imgfile");f.multiple=!!multi;f.click()}
 document.addEventListener("change",e=>{const id=e.target.id;
+  if(id==="g-prov"){CFG.prov=e.target.value;LS.set("sls-cfg",CFG);$("#g-status").textContent="";cfgUI();drawLangs();if(KEY()&&!(CFG.lists[CFG.prov]||[]).length)loadModels().then(cfgUI,()=>{});return}
   if(id==="langsel")switchLang(e.target.value);else if(id==="b-loc")setBase(e.target.value);else if(id==="projsel")openProj(e.target.value);
-  else if(id==="g-model"){CFG.model=e.target.value;LS.set("sls-cfg",CFG);aiUI()}});
+  else if(id==="g-model"){CFG.models[CFG.prov]=e.target.value;LS.set("sls-cfg",CFG);aiUI()}});
 document.addEventListener("input",e=>{clearTimeout(fontT);fontT=setTimeout(()=>ensureFonts().then(refresh),900);const t=e.target,val=t.type==="checkbox"?t.checked:t.type==="range"?+t.value:t.value;
   if(t.dataset.el){const el=curEl();if(!el)return;const k=t.dataset.el;el[k]=(k==="s"||k==="w"||k==="h")?val/100:val;save();refresh();return}
   if(t.dataset.e){const sh=S.shots[S.sel];if(val==="")delete sh[t.dataset.e];else sh[t.dataset.e]=val;save();refresh();return}
   const k=t.dataset.k;if(!k)return;set(k,val);if(k.startsWith("comps.")){const ci=+k.split(".")[1],cc=$("#cp-c-"+ci),tl=S.comps[ci].text.length;if(cc)cc.textContent=tl?tl.toLocaleString()+" chars":"no text yet";save();return}if(k.startsWith("brief."))S.example=false;save();refresh()});
 document.addEventListener("click",async e=>{
   const t=e.target.closest("button");if(!t)return;const sh=S.shots[S.sel];
-  if(t.id==="addcomp"){S.comps.push({url:"",text:""});save();buildComps()}
+  if(t.id==="cp-add")addLinks($("#cp-new").value);
+  else if(t.dataset.cread!==undefined){const c=S.comps[+t.dataset.cread];if(c){c.st="wait";buildComps();readQueue()}}
+  else if(t.dataset.cdel!==undefined){S.comps.splice(+t.dataset.cdel,1);save();buildComps();$("#an-status").textContent="Competitor removed ("+S.comps.length+" of 5)."}
+  else if(t.id==="undo")hist(-1);
+  else if(t.id==="redo")hist(1);
+  else if(t.id==="review")runReview();
+  else if(t.id==="ed-dl"){const [W,H]=devSize(S.style.dev);saveFile(slug()+"-"+DEV[S.style.dev].name+"-"+String(S.sel+1).padStart(2,"0")+"-"+W+"x"+H+".jpg",await blobOf(renderShot(S.sel,W,H,1),"image/jpeg",.92),$("#sh-status"))}
   else if(t.id==="job-x"){JOB.cancel=true;if(JOB.ctl)JOB.ctl.abort()}
   else if(t.id==="findtop")runFindTop();
   else if(t.id==="fetchall")runFetchAll();
@@ -508,9 +627,14 @@ document.addEventListener("click",async e=>{
   else if(t.id==="ed-img")pickImg("slot");
   else if(t.id==="ed-limg")pickImg("lang");
   else if(t.id==="ed-lrm"){if(sh.iml){delete sh.iml[S.loc.cur];dropImg("s:"+sh.id+":"+S.loc.cur);save();buildShots();refresh()}}
-  else if(t.dataset.tpl!==undefined){applyTpl(TPL[+t.dataset.tpl]);save();fill();buildShots();refresh();$("#sh-status").textContent='Template "'+TPL[+t.dataset.tpl].n+'" applied to all slots.'}
+  else if(t.dataset.tpl!==undefined){const tp=TPL[+t.dataset.tpl],pl=t.dataset.pal!==undefined?PALS[+t.dataset.pal]:null;applyTpl(tp);if(pl)applyPal(pl);save();fill();buildShots();if(pl)buildTpls();refresh();$("#sh-status").textContent='Template "'+tp.n+(pl?" · "+pl.n:"")+'" applied to all slots.'}
+  else if(t.dataset.pal!==undefined){applyPal(PALS[+t.dataset.pal]);save();fill();buildShots();buildTpls();refresh();$("#sh-status").textContent='Color theme "'+PALS[+t.dataset.pal].n+'" applied.'}
+  else if(t.id==="tplbrowse"){const g=$("#tplall");if(g.hidden){browseAll();t.textContent="Hide the combinations"}else{g.hidden=true;t.textContent="Browse every layout and color combination"}}
+  else if(t.id==="pu-go")playUpload();
+  else if(t.id==="pu-send")playSend(t);
+  else if(t.id==="gp-save"){CFG.gcid=$("#gp-cid").value.trim();LS.set("sls-cfg",CFG);$("#gp-status").textContent=CFG.gcid?"Client ID saved in this browser.":"Client ID removed."}
   else if(t.dataset.add){const ty=t.dataset.add;if(ty==="img"){pickImg("el");return}
-    const d={text:{x:.5,y:.93,s:.045,tx:"New text"},rect:{x:.5,y:.5,w:.5,h:.14,r:30,o:22,back:true},circle:{x:.82,y:.14,s:.34,o:14,back:true},emoji:{x:.86,y:.09,s:.1,tx:"⭐"}}[ty];
+    const d={text:{x:.5,y:.93,s:.045,tx:"New text"},pill:{x:.5,y:.955,s:.035,tx:"No ads",c:"#FFFFFF"},rect:{x:.5,y:.5,w:.5,h:.14,r:30,o:22,back:true},circle:{x:.82,y:.14,s:.34,o:14,back:true},emoji:{x:.86,y:.09,s:.1,tx:"⭐"}}[ty];
     const el=Object.assign({id:uid(),t:ty},d);(sh.els||(sh.els=[])).push(el);SELEL=el.id;fillEl();save();refresh()}
   else if(t.id==="el-del"){const el=curEl();if(el){if(el.t==="img")dropImg("e:"+el.id);sh.els=sh.els.filter(x=>x!==el);SELEL=null;fillEl();save();refresh()}}
   else if(t.id==="el-up"||t.id==="el-down"){const el=curEl();if(el){const a=sh.els,i=a.indexOf(el),j=i+(t.id==="el-up"?1:-1);if(j>=0&&j<a.length){[a[i],a[j]]=[a[j],a[i]];save();refresh()}}}
@@ -535,7 +659,7 @@ document.addEventListener("click",async e=>{
   else if(t.id==="dlzip"){t.disabled=true;try{await buildZip($("#ex-status"))}catch(err){$("#ex-status").textContent="Could not build the ZIP. Try again."}t.disabled=false}
   else if(t.id==="resetall"){if(t.dataset.armed){imgKeys().forEach(k=>dropImg(k));S=blank();S.shots.forEach(x=>x.id=uid());saveNow();location.reload()}else{t.dataset.armed=1;t.textContent="Press again to clear all fields and images"}}
   else if(t.id==="g-save")saveKey();
-  else if(t.id==="g-clear"){CFG={key:"",model:"",models:[]};LS.set("sls-cfg",CFG);cfgUI();drawLangs();$("#g-status").textContent="Key removed from this browser."}
+  else if(t.id==="g-clear"){CFG.keys[CFG.prov]="";CFG.models[CFG.prov]="";CFG.lists[CFG.prov]=[];LS.set("sls-cfg",CFG);cfgUI();drawLangs();$("#g-status").textContent=PN()+" key removed from this browser."}
   else if(t.id==="p-new")openProj(newProj(blank(),"New app"));
   else if(t.id==="p-dup")dupProj();
   else if(t.id==="p-del")delProj(t);
@@ -543,6 +667,9 @@ document.addEventListener("click",async e=>{
   else if(t.id==="p-imp")$("#projfile").click();
   else if(t.id==="lk-make"){const p=$("#lk-pass").value;if(p.length<4){$("#lk-out").value="Use at least 4 characters.";return}$("#lk-out").value='window.SLS_LOCK="'+await sha(p)+'";'}
 });
+$("#cp-new").addEventListener("paste",()=>setTimeout(()=>addLinks($("#cp-new").value),0));
+$("#cp-new").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addLinks(e.target.value)}});
+document.addEventListener("keydown",e=>{if(!(e.ctrlKey||e.metaKey)||/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))return;const k=e.key.toLowerCase();if(k==="z"){e.preventDefault();hist(e.shiftKey?1:-1)}else if(k==="y"){e.preventDefault();hist(1)}});
 $("#projfile").addEventListener("change",e=>{const f=e.target.files[0];e.target.value="";if(f)importProj(f)});
 $("#imgfile").addEventListener("change",async e=>{const files=[...e.target.files];e.target.value="";if(!files.length)return;const sh=S.shots[S.sel];
   try{
@@ -570,5 +697,5 @@ gate().then(async()=>{
   dragify($("#edstage"),()=>devSize(S.style.dev),pickShot,drawEditor);
   dragify($("#fgstage"),()=>[1024,500],pickFG,drawFG);
   await loadImages();buildShots();if(location.hash==="#screens")buildTpls();refresh();ensureFonts().then(refresh);
-  if(CFG.key&&!CFG.models.length)loadModels().then(cfgUI,()=>{});
+  snap();drawReview();if(KEY()&&!(CFG.lists[CFG.prov]||[]).length)loadModels().then(cfgUI,()=>{});
 });
