@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Store Listing Studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=DM+Serif+Display&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Poppins:wght@500;700&family=Noto+Sans+Arabic:wght@500;700&family=Noto+Sans+Devanagari:wght@500;700&family=Noto+Sans+Bengali:wght@500;700&family=Noto+Sans+Thai:wght@500;700&family=Noto+Sans+JP:wght@700&family=Noto+Sans+KR:wght@700&family=Noto+Sans+SC:wght@700&family=Noto+Sans+TC:wght@700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=DM+Serif+Display&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Poppins:wght@500;700&family=Montserrat:wght@800&family=Bebas+Neue&family=Playfair+Display:wght@800&family=Rubik:wght@700&family=Oswald:wght@700&family=Noto+Sans+Arabic:wght@500;700&family=Noto+Sans+Devanagari:wght@500;700&family=Noto+Sans+Bengali:wght@500;700&family=Noto+Sans+Thai:wght@500;700&family=Noto+Sans+JP:wght@700&family=Noto+Sans+KR:wght@700&family=Noto+Sans+SC:wght@700&family=Noto+Sans+TC:wght@700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -26,11 +26,12 @@
       <a href="#settings"><b>9</b>Settings</a>
     </nav>
     <label>Editing language<select id="langsel"></select></label>
+    <div class="tools"><button type="button" class="sm" id="undo">Undo</button><button type="button" class="sm" id="redo">Redo</button></div>
     <div class="aistate" id="aistate"><span class="dot"></span>AI writer</div>
   </aside>
 
   <main>
-    <div class="banner" id="banner" style="margin-bottom:16px">AI writing is off. Add your free Gemini API key in <a href="#settings">Settings</a>. The graphics editor, checks and export work without it.</div>
+    <div class="banner" id="banner" style="margin-bottom:16px">AI writing is off. Connect Gemini, ChatGPT or Claude in <a href="#settings">Settings</a>. The graphics editor, checks and export work without it.</div>
 
     <!-- 1 BRIEF -->
     <section id="brief">
@@ -56,8 +57,9 @@
             <label class="row">Color 1<input type="color" id="br-c1" data-k="brand.c1"></label>
             <label class="row">Color 2<input type="color" id="br-c2" data-k="brand.c2"></label>
             <label class="row">Text<input type="color" id="br-tx" data-k="brand.text"></label>
+            <label class="row">Highlight<input type="color" id="br-hl" data-k="brand.hl"></label>
           </div>
-          <label>Headline font<select id="br-font" data-k="brand.font"><option>Poppins</option><option>Bricolage Grotesque</option><option>DM Serif Display</option></select></label>
+          <label>Headline font<select id="br-font" data-k="brand.font"><option>Poppins</option><option>Bricolage Grotesque</option><option>Montserrat</option><option>Rubik</option><option>Oswald</option><option>Bebas Neue</option><option>Playfair Display</option><option>DM Serif Display</option></select></label>
           <div class="stage"><canvas id="brandprev" width="480" height="150"></canvas></div>
           <button class="sm" id="resetall" type="button">Clear this project</button>
         </div>
@@ -67,11 +69,15 @@
 
     <!-- 2 COMPETITORS -->
     <section id="competitors">
-      <div><h2>Competitors</h2><p class="lead">Add up to five top-ranked apps for your main keyword. Gemini can search for them and read their Play Store pages from the links. If a page cannot be read, open it, press Ctrl+A then Ctrl+C, and paste the text.</p></div>
+      <div><h2>Competitors</h2><p class="lead">Add up to five top-ranked apps for your main keyword. The AI can search for them and read their Play Store pages from the links. If a page cannot be read, open it, press Ctrl+A then Ctrl+C, and paste the text.</p></div>
+      <div class="card">
+        <div class="rowf"><input type="url" id="cp-new" style="flex:1;min-width:240px" placeholder="Paste a Play Store link: https://play.google.com/store/apps/details?id=com.example.app" aria-label="Play Store link"><button class="pri" type="button" id="cp-add">Add link</button></div>
+        <p class="status">A link is checked and added the moment you paste it. Then its title, developer, rating, installs and description are read automatically. Up to 5 competitors.</p>
+      </div>
       <div id="comps" class="cols"></div>
       <div class="rowf">
         <button class="needs-ai" id="findtop" type="button">Find top apps for my main keyword</button>
-        <button class="needs-ai" id="fetchall" type="button">Read listings from the links</button>
+        <button class="needs-ai" id="fetchall" type="button">Read unread links</button>
         <button class="pri needs-ai" id="analyze" type="button">Analyze competitors</button>
         <span class="status" id="an-status"></span>
       </div>
@@ -179,7 +185,9 @@
           <label class="row">Preview<select id="s-dev" data-k="style.dev" style="width:auto"><option value="phone">Phone</option><option value="t7">7-inch tablet</option><option value="t10">10-inch tablet</option></select></label>
           <label class="row">Caption<select id="s-lay" data-k="style.layout" style="width:auto"><option value="top">Above device</option><option value="bottom">Below device</option></select></label>
           <label class="row">Tablet shape<select id="s-tor" data-k="style.tablet" style="width:auto"><option value="l">Landscape</option><option value="p">Portrait</option></select></label>
-                    <label class="row">Frame<select id="s-fs" data-k="style.fstyle" style="width:auto"><option value="dark">Dark</option><option value="light">Light</option><option value="outline">Outline</option><option value="none">None</option></select></label>
+                    <label class="row">Frame<select id="s-fs" data-k="style.fstyle" style="width:auto"><option value="dark">Dark</option><option value="light">Light</option><option value="outline">Outline</option><option value="clay">Clay</option><option value="custom">Custom color</option><option value="none">None</option></select></label>
+          <label class="row">Frame color<input type="color" id="s-fcol" data-k="style.fcol"></label>
+          <label class="row">3D view<select id="s-d3" data-k="style.d3" style="width:auto"><option value="none">Flat</option><option value="left">Turn left</option><option value="right">Turn right</option><option value="iso">Isometric</option></select></label>
           <label class="row"><input type="checkbox" id="s-pano" data-k="style.pano">Panoramic background</label>
           <label class="row"><input type="checkbox" id="s-alt" data-k="style.alt">Alternate colors</label>
           <label class="row">Background<select id="s-bgt" data-k="style.bgt" style="width:auto"><option value="gradient">Gradient</option><option value="solid">Solid color</option><option value="dots">Dots</option><option value="grid">Grid</option><option value="lines">Diagonal lines</option><option value="photo">Photo</option></select></label>
@@ -188,37 +196,43 @@
         </div>
         <div class="spec" id="shotspec"></div>
       </div>
-      <div class="card"><div class="head"><h3>Templates</h3><span class="status">One click restyles every slot. Captions, images and added elements stay.</span></div><div class="thumbs" id="tpls"></div></div>
+      <div class="card"><div class="head"><h3>Templates</h3><span class="status" id="tplcount"></span></div>
+        <p class="status">Layout. One click restyles every slot; captions, images and added elements stay.</p><div class="thumbs" id="tpls"></div>
+        <p class="status">Color theme</p><div class="chips" id="pals"></div>
+        <div class="rowf"><button type="button" id="tplbrowse">Browse every layout and color combination</button></div>
+        <div class="tplgrid" id="tplall" hidden></div>
+      </div>
       <div class="card"><div class="head"><h3>Slots</h3><span class="status">Select a slot to edit it. 6 minimum, 8 maximum.</span></div><div class="thumbs" id="shots"></div></div>
       <div class="card">
         <div class="head"><h3 id="ed-title">Editor</h3><span class="status">Drag the text or the device on the preview to move it.</span></div>
         <div class="editor">
           <div class="edstage" id="edstage"></div>
           <div class="ctl">
-            <label>Headline<input type="text" id="ed-h" data-e="h"></label>
+            <label>Headline <span class="count">put *stars* around words to highlight them</span><input type="text" id="ed-h" data-e="h"></label>
             <label>Supporting line<input type="text" id="ed-s" data-e="s"></label>
             <label>Badge above the headline (optional)<input type="text" id="ed-b" data-e="b" placeholder="Example: Works offline"></label>
             <div class="grid2"><label>Headline size<input type="range" id="ed-hs" data-e="hs" min="50" max="170"></label><label>Supporting line size<input type="range" id="ed-ss" data-e="ss" min="50" max="170"></label></div>
             <div class="grid2"><label>Text align<select id="ed-al" data-e="al"><option value="">Automatic</option><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label><label>Caption position<select id="ed-lay" data-e="lay"><option value="">Same as all slots</option><option value="top">Above device</option><option value="bottom">Below device</option></select></label></div>
+            <label>3D view for this slot<select id="ed-d3" data-e="d3"><option value="">Same as all slots</option><option value="none">Flat</option><option value="left">Turn left</option><option value="right">Turn right</option><option value="iso">Isometric</option></select></label>
             <div class="grid2"><label>Device size<input type="range" id="ed-ds" data-e="ds" min="50" max="150"></label><label>Device tilt<input type="range" id="ed-rot" data-e="rot" min="-20" max="20"></label></div>
             <div class="rowf"><label class="row">Text<input type="color" id="ed-tc" data-e="tc"></label><label class="row">Background<input type="color" id="ed-c1" data-e="c1"><input type="color" id="ed-c2" data-e="c2" aria-label="Background color 2"></label><label class="row"><input type="checkbox" id="ed-frame" data-e="frame">Device frame</label></div>
             <div class="rowf"><button class="sm" type="button" id="ed-img">Replace image</button><button class="sm" type="button" id="ed-prev">Move earlier</button><button class="sm" type="button" id="ed-next">Move later</button><button class="sm" type="button" id="ed-dup">Duplicate</button></div>
             <div class="rowf"><button class="sm" type="button" id="ed-all">Apply this layout to all slots</button><button class="sm" type="button" id="ed-reset">Reset layout</button><button class="sm" type="button" id="ed-del">Delete slot</button></div>
-            <div class="rowf"><button class="sm" type="button" id="ed-limg">Image for this language only</button><button class="sm" type="button" id="ed-lrm">Remove language image</button></div>
+            <div class="rowf"><button class="sm" type="button" id="ed-limg">Image for this language only</button><button class="sm" type="button" id="ed-lrm">Remove language image</button><button class="sm" type="button" id="ed-dl">Download this screenshot</button></div>
             <h3>Extra elements</h3>
-            <div class="rowf"><button class="sm" type="button" data-add="text">Add text</button><button class="sm" type="button" data-add="rect">Add box</button><button class="sm" type="button" data-add="circle">Add circle</button><button class="sm" type="button" data-add="emoji">Add emoji</button><button class="sm" type="button" data-add="img">Add image or logo</button></div>
+            <div class="rowf"><button class="sm" type="button" data-add="text">Add text</button><button class="sm" type="button" data-add="pill">Add label</button><button class="sm" type="button" data-add="rect">Add box</button><button class="sm" type="button" data-add="circle">Add circle</button><button class="sm" type="button" data-add="emoji">Add emoji</button><button class="sm" type="button" data-add="img">Add image or logo</button></div>
             <div id="elpanel" class="ctl" hidden>
               <p class="status" id="el-name"></p>
-              <label data-for="text emoji">Content<input type="text" id="el-tx" data-el="tx"></label>
+              <label data-for="text emoji pill">Content<input type="text" id="el-tx" data-el="tx"></label>
               <div class="grid2">
-                <label data-for="text emoji circle">Size<input type="range" id="el-s" data-el="s" min="2" max="60"></label>
+                <label data-for="text emoji circle pill">Size<input type="range" id="el-s" data-el="s" min="2" max="60"></label>
                 <label data-for="rect img">Width<input type="range" id="el-w" data-el="w" min="5" max="120"></label>
                 <label data-for="rect">Height<input type="range" id="el-h" data-el="h" min="2" max="120"></label>
                 <label data-for="rect">Corner roundness<input type="range" id="el-r" data-el="r" min="0" max="50"></label>
                 <label>Rotation<input type="range" id="el-rot" data-el="rot" min="-180" max="180"></label>
                 <label>Opacity<input type="range" id="el-o" data-el="o" min="5" max="100"></label>
               </div>
-              <div class="rowf"><label class="row" data-for="text rect circle">Color<input type="color" id="el-c" data-el="c"></label><label class="row"><input type="checkbox" id="el-back" data-el="back">Behind the device</label></div>
+              <div class="rowf"><label class="row" data-for="text rect circle pill">Color<input type="color" id="el-c" data-el="c"></label><label class="row"><input type="checkbox" id="el-back" data-el="back">Behind the device</label></div>
               <div class="rowf"><button class="sm" type="button" id="el-up">Bring forward</button><button class="sm" type="button" id="el-down">Send backward</button><button class="sm" type="button" id="el-del">Delete element</button></div>
             </div>
           </div>
@@ -267,22 +281,30 @@
           </table></div>
         </div>
       </div>
+      <div class="card"><div class="head"><h3>Upload to Play Console</h3><span class="status">Uses the Google Play Developer API with your own Google sign-in. Set it up once in Settings.</span></div>
+        <div class="grid2"><label>App package name<input type="text" id="pu-pkg" data-k="pkg" placeholder="com.example.app"></label><label>What to upload<select id="pu-what" data-k="puwhat"><option value="all">Listing text and all graphics</option><option value="text">Listing text only</option><option value="gfx">Graphics only</option></select></label></div>
+        <div class="rowf"><button class="pri" type="button" id="pu-go">Sign in with Google and upload as draft</button><button type="button" id="pu-send" hidden>Send these changes to Google review</button></div>
+        <ul class="lint" id="pu-log"></ul>
+        <p class="note">This replaces the listing text, icon, feature graphic and screenshots of every language in this project inside Play Console. It is saved as changes not yet sent for review, so nothing reaches users until you check it in Play Console and send it yourself.</p>
+      </div>
+      <div class="card"><div class="head"><h3>AI review</h3><span class="status">Sends your screenshots and listing text to the AI and returns a score with exact fixes.</span></div><div class="rowf"><button class="pri needs-ai" type="button" id="review">Review my listing</button><span class="status" id="rv-status"></span></div><div id="review-out"></div></div>
       <div class="card"><div class="head"><h3>Google Play preview</h3><span class="status">Layout preview in the editing language. Rating and install numbers appear after publishing.</span></div><div class="play" id="play"></div></div>
     </section>
 
     <!-- 9 SETTINGS -->
     <section id="settings">
-      <div><h2>Settings</h2><p class="lead">Connect Gemini for AI writing, manage your app projects and lock the site. Everything is stored in this browser only.</p></div>
+      <div><h2>Settings</h2><p class="lead">Connect Gemini, ChatGPT or Claude for AI writing, manage your app projects and lock the site. Everything is stored in this browser only.</p></div>
       <div class="cols">
         <div class="card">
-          <h3>Gemini AI</h3>
-          <ul class="lint"><li>Open Google AI Studio and sign in with your Google account.</li><li>Press Create API key and copy it.</li><li>Paste it below and press Save and test.</li></ul>
-          <p><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Open Google AI Studio (aistudio.google.com/apikey)</a></p>
-          <label>Gemini API key<input type="password" id="g-key" autocomplete="off"></label>
+          <h3>AI provider</h3>
+          <label>Use this AI for writing, translating and reading links<select id="g-prov"><option value="gemini">Gemini (Google)</option><option value="openai">ChatGPT (OpenAI)</option><option value="claude">Claude (Anthropic)</option></select></label>
+          <p class="note" id="g-note"></p>
+          <p><a id="g-link" href="#" target="_blank" rel="noopener"></a></p>
+          <label>API key for this provider<input type="password" id="g-key" autocomplete="off"></label>
           <div class="rowf"><button class="pri" type="button" id="g-save">Save and test</button><button type="button" id="g-clear">Remove key</button></div>
           <label>Model<select id="g-model"></select></label>
           <span class="status" id="g-status"></span>
-          <p class="status">The key stays in this browser and is sent only to Google. If a model says its quota is used up, pick another one here; Flash-Lite models usually have the highest free limits.</p>
+          <p class="status">Each provider keeps its own key, so you can switch any time. Keys stay in this browser and are sent only to that provider.</p>
         </div>
         <div class="card">
           <h3>App projects</h3>
@@ -290,6 +312,10 @@
           <div class="rowf"><button class="pri" type="button" id="p-new">New app project</button><button type="button" id="p-dup">Duplicate this project</button><button type="button" id="p-del">Delete this project</button></div>
           <div class="rowf"><button type="button" id="p-exp">Save project file</button><button type="button" id="p-imp">Open project file</button><input class="hidefile" type="file" id="projfile" accept=".json,application/json"></div>
           <span class="status" id="p-status"></span>
+          <h3>Google Play upload</h3>
+          <ul class="lint"><li>In Google Cloud Console create a project and enable the Google Play Android Developer API.</li><li>Under OAuth consent screen choose External, add your own Google account as a test user.</li><li>Under Credentials create an OAuth client ID of type Web application and add this site as an Authorized JavaScript origin: <b id="gp-origin"></b></li><li>The Google account you sign in with must have access to the app in Play Console.</li></ul>
+          <div class="rowf"><input type="text" id="gp-cid" style="flex:1;min-width:200px" placeholder="OAuth client ID, ends with .apps.googleusercontent.com" aria-label="OAuth client ID"><button type="button" id="gp-save">Save client ID</button></div>
+          <span class="status" id="gp-status"></span>
           <h3>Access lock</h3>
           <p class="status">Type a passcode, press the button, then paste the line it gives into config.js in your GitHub repository. After that the site asks for the passcode before it opens.</p>
           <div class="rowf"><input type="text" id="lk-pass" style="flex:1;min-width:140px" placeholder="Passcode" aria-label="Passcode"><button type="button" id="lk-make">Create lock line</button></div>
