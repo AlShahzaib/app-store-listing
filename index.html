@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Store Listing Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=DM+Serif+Display&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Poppins:wght@500;700&family=Noto+Sans+Arabic:wght@500;700&family=Noto+Sans+Devanagari:wght@500;700&family=Noto+Sans+Bengali:wght@500;700&family=Noto+Sans+Thai:wght@500;700&family=Noto+Sans+JP:wght@700&family=Noto+Sans+KR:wght@700&family=Noto+Sans+SC:wght@700&family=Noto+Sans+TC:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="lock" hidden><div class="card"><h3>Store Listing Studio</h3><label>Passcode<input type="password" id="lock-in"></label><button class="pri" type="button" id="lock-go">Open</button><span class="status" id="lock-st"></span></div></div>
+<div class="app">
+  <aside class="rail">
+    <div class="brand"><i></i><h1>Store Listing Studio</h1></div>
+    <label>App project<select id="projsel"></select></label>
+    <nav id="nav">
+      <a href="#brief"><b>1</b>App brief</a>
+      <a href="#competitors"><b>2</b>Competitors</a>
+      <a href="#text"><b>3</b>Listing text</a>
+      <a href="#icon"><b>4</b>App icon</a>
+      <a href="#graphic"><b>5</b>Feature graphic</a>
+      <a href="#screens"><b>6</b>Screenshots</a>
+      <a href="#languages"><b>7</b>Languages</a>
+      <a href="#export"><b>8</b>Check and export</a>
+      <a href="#settings"><b>9</b>Settings</a>
+    </nav>
+    <label>Editing language<select id="langsel"></select></label>
+    <div class="aistate" id="aistate"><span class="dot"></span>AI writer</div>
+  </aside>
+
+  <main>
+    <div class="banner" id="banner" style="margin-bottom:16px">AI writing is off. Add your free Gemini API key in <a href="#settings">Settings</a>. The graphics editor, checks and export work without it.</div>
+
+    <!-- 1 BRIEF -->
+    <section id="brief">
+      <div><h2>App brief</h2><p class="lead">Describe your app once. Every title, description, caption and graphic is built from this brief, so list only features the app really has.</p></div>
+      <div class="cols wide-left">
+        <div class="card">
+          <div class="grid2">
+            <label>App name or brand<input type="text" id="b-name" data-k="brief.name"></label>
+            <label>Play Store category<input type="text" id="b-cat" data-k="brief.category"></label>
+          </div>
+          <label>What the app does and its features, one per line<textarea id="b-feat" data-k="brief.features" rows="8"></textarea></label>
+          <label>Keywords you want to rank for, comma separated (optional)<input type="text" id="b-kw" data-k="brief.keywords"></label>
+          <div class="grid3">
+            <label>Target users<input type="text" id="b-aud" data-k="brief.audience"></label>
+            <label>Main language<select id="b-loc"></select></label>
+            <label>Tone<select id="b-tone" data-k="brief.tone"><option>Clear and friendly</option><option>Professional</option><option>Energetic</option><option>Simple, for first-time users</option></select></label>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Brand look</h3>
+          <p class="status">Used by the icon, feature graphic and all screenshots.</p>
+          <div class="rowf">
+            <label class="row">Color 1<input type="color" id="br-c1" data-k="brand.c1"></label>
+            <label class="row">Color 2<input type="color" id="br-c2" data-k="brand.c2"></label>
+            <label class="row">Text<input type="color" id="br-tx" data-k="brand.text"></label>
+          </div>
+          <label>Headline font<select id="br-font" data-k="brand.font"><option>Poppins</option><option>Bricolage Grotesque</option><option>DM Serif Display</option></select></label>
+          <div class="stage"><canvas id="brandprev" width="480" height="150"></canvas></div>
+          <button class="sm" id="resetall" type="button">Clear this project</button>
+        </div>
+      </div>
+      <div class="rowf"><a href="#competitors"><button class="pri" type="button" tabindex="-1">Next: add competitors</button></a></div>
+    </section>
+
+    <!-- 2 COMPETITORS -->
+    <section id="competitors">
+      <div><h2>Competitors</h2><p class="lead">Add up to five top-ranked apps for your main keyword. Gemini can search for them and read their Play Store pages from the links. If a page cannot be read, open it, press Ctrl+A then Ctrl+C, and paste the text.</p></div>
+      <div id="comps" class="cols"></div>
+      <div class="rowf">
+        <button class="needs-ai" id="findtop" type="button">Find top apps for my main keyword</button>
+        <button class="needs-ai" id="fetchall" type="button">Read listings from the links</button>
+        <button class="pri needs-ai" id="analyze" type="button">Analyze competitors</button>
+        <span class="status" id="an-status"></span>
+      </div>
+      <div id="analysis"></div>
+    </section>
+
+    <!-- 3 TEXT -->
+    <section id="text">
+      <div><h2>Listing text</h2><p class="lead">Title, short description and full description, written from your brief and the competitor keywords. Edit anything. Counters and checks follow Google Play limits and metadata policy.</p></div>
+      <div class="rowf">
+        <button class="pri needs-ai" id="gentext" type="button">Generate listing text</button>
+        <span class="status" id="tx-status"></span>
+      </div>
+      <div class="card">
+        <div class="head"><h3>Edit with AI</h3><span class="status">Pick a field, say what to change, press Apply. Undo brings back the previous text.</span></div>
+        <div class="rowf">
+          <select id="ae-target" style="width:auto" aria-label="Field to edit"><option value="title">App name</option><option value="short">Short description</option><option value="full">Full description</option></select>
+          <input type="text" id="ae-inst" style="flex:1;min-width:200px" placeholder="Example: make it shorter, mention offline use, more formal tone" aria-label="What to change">
+          <button class="needs-ai" id="ae-go" type="button">Apply</button><button id="ae-undo" type="button" disabled>Undo</button>
+        </div>
+      </div>
+      <div class="cols wide-left">
+        <div class="card">
+          <div class="head"><h3>App name</h3><span class="rowf"><span class="count" id="c-title"></span><button class="sm" data-copy="listing.title" type="button">Copy</button></span></div>
+          <input type="text" id="l-title" data-k="listing.title" aria-label="App name">
+          <div class="chips" id="titleopts"></div>
+          <div class="head"><h3>Short description</h3><span class="rowf"><span class="count" id="c-short"></span><button class="sm" data-copy="listing.short" type="button">Copy</button></span></div>
+          <input type="text" id="l-short" data-k="listing.short" aria-label="Short description">
+          <div class="chips" id="shortopts"></div>
+          <div class="head"><h3>Full description</h3><span class="rowf"><span class="count" id="c-full"></span><button class="sm" data-copy="listing.full" type="button">Copy</button></span></div>
+          <textarea id="l-full" data-k="listing.full" rows="18" aria-label="Full description"></textarea>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
+          <div class="card"><h3>Policy and limit checks</h3><ul class="lint" id="lint"></ul></div>
+          <div class="card"><h3>Keyword coverage</h3><p class="status">T = title, S = short description, number = uses in full description.</p><div class="chips" id="cover"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4 ICON -->
+    <section id="icon">
+      <div><h2>App icon</h2><p class="lead">Google Play wants a full square with no rounded corners and no shadow. Play rounds the corners itself, shown in the masked previews.</p></div>
+      <div class="cols">
+        <div class="card">
+          <label>Icon source<select id="i-mode" data-k="icon.mode"><option value="letter">Letters on brand colors</option><option value="svg">AI concept</option><option value="upload">My own artwork</option></select></label>
+          <div id="i-letter"><label>Letters (1 to 3)<input type="text" id="i-text" data-k="icon.letter" maxlength="3"></label></div>
+          <div id="i-svg">
+            <div class="rowf"><button class="pri needs-ai" id="genicon" type="button">Draw 4 icon concepts</button><span class="status" id="ic-status"></span></div>
+            <div class="svgopts" id="svgopts"></div>
+          </div>
+          <div id="i-up">
+            <div class="rowf"><button type="button" id="iconpick">Choose image</button>
+              <label class="row">Fit<select id="i-fit" data-k="icon.fit" style="width:auto"><option value="logo">Logo on brand colors</option><option value="cover">Fill the square</option></select></label></div>
+          </div>
+          <div id="i-size"><label>Symbol size<input type="range" id="i-scale" data-k="icon.scale" min="30" max="100"></label></div>
+          <div class="spec">512 x 512 px &middot; 32-bit PNG &middot; max 1024 KB &middot; full square, Play applies the mask</div>
+        </div>
+        <div class="card">
+          <div class="stage" id="iconstage">
+            <figure><canvas id="ic-raw" width="512" height="512" style="width:180px"></canvas>Upload file</figure>
+            <figure><div class="mask"><canvas id="ic-96" width="192" height="192" style="width:96px"></canvas></div>On Play</figure>
+            <figure><div class="mask"><canvas id="ic-48" width="96" height="96" style="width:48px"></canvas></div>In search</figure>
+          </div>
+          <div class="rowf"><button class="pri needs-dl" id="dlicon" type="button">Download icon PNG</button><span class="status" id="icon-size"></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5 FEATURE GRAPHIC -->
+    <section id="graphic">
+      <div><h2>Feature graphic</h2><p class="lead">The banner Play shows as your video cover and in large promotional placements. Keep the message short and away from the edges.</p></div>
+      <div class="card">
+        <div class="edstage" id="fgstage"><canvas id="fgc" width="1024" height="500"></canvas></div>
+        <p class="status">Drag the text or the phone on the banner to move it.</p>
+        <div class="grid2">
+          <label>Headline<input type="text" id="f-h" data-k="fg.h"></label>
+          <label>Supporting line<input type="text" id="f-s" data-k="fg.s"></label>
+        </div>
+        <div class="grid3">
+          <label>Headline size<input type="range" id="f-hs" data-k="fg.hs" min="50" max="170"></label>
+          <label>Supporting line size<input type="range" id="f-ss" data-k="fg.ss" min="50" max="170"></label>
+          <label>Phone size<input type="range" id="f-ds" data-k="fg.ds" min="50" max="150"></label>
+        </div>
+        <div class="rowf">
+          <label class="row">Layout<select id="f-lay" data-k="fg.layout" style="width:auto"><option value="split">Text left, phone right</option><option value="center">Centered, no phone</option></select></label>
+          <label class="row"><input type="checkbox" id="f-icon" data-k="fg.icon">Show icon</label>
+          <button type="button" id="fg-reset">Reset layout</button>
+          <button class="pri needs-dl" id="dlfg" type="button">Download JPEG</button>
+        </div>
+        <div class="spec">1024 x 500 px &middot; JPEG or 24-bit PNG, no alpha &middot; exported here as JPEG</div>
+      </div>
+    </section>
+
+    <!-- 6 SCREENSHOTS -->
+    <section id="screens">
+      <div><h2>Screenshots</h2><p class="lead">Upload at least 6 real captures from your app. Select any slot to edit its text, sizes, colors and layout, then export for phone, 7-inch and 10-inch tablet.</p></div>
+      <div class="card">
+        <div class="rowf">
+          <button class="pri" type="button" id="shotpick">Upload app screenshots</button><input class="hidefile" type="file" id="imgfile" accept="image/*" multiple>
+          <button class="needs-ai" type="button" id="gencaps">Write captions</button>
+          <button type="button" id="addshot">Add slot</button>
+          <span class="status" id="sh-status"></span>
+        </div>
+        <div class="rowf">
+          <label class="row">Preview<select id="s-dev" data-k="style.dev" style="width:auto"><option value="phone">Phone</option><option value="t7">7-inch tablet</option><option value="t10">10-inch tablet</option></select></label>
+          <label class="row">Caption<select id="s-lay" data-k="style.layout" style="width:auto"><option value="top">Above device</option><option value="bottom">Below device</option></select></label>
+          <label class="row">Tablet shape<select id="s-tor" data-k="style.tablet" style="width:auto"><option value="l">Landscape</option><option value="p">Portrait</option></select></label>
+                    <label class="row">Frame<select id="s-fs" data-k="style.fstyle" style="width:auto"><option value="dark">Dark</option><option value="light">Light</option><option value="outline">Outline</option><option value="none">None</option></select></label>
+          <label class="row"><input type="checkbox" id="s-pano" data-k="style.pano">Panoramic background</label>
+          <label class="row"><input type="checkbox" id="s-alt" data-k="style.alt">Alternate colors</label>
+          <label class="row">Background<select id="s-bgt" data-k="style.bgt" style="width:auto"><option value="gradient">Gradient</option><option value="solid">Solid color</option><option value="dots">Dots</option><option value="grid">Grid</option><option value="lines">Diagonal lines</option><option value="photo">Photo</option></select></label>
+          <button class="sm" type="button" id="bgpick">Choose background photo</button>
+          <label class="row">Photo darkness<input type="range" id="s-dim" data-k="style.dim" min="0" max="85" style="width:110px"></label>
+        </div>
+        <div class="spec" id="shotspec"></div>
+      </div>
+      <div class="card"><div class="head"><h3>Templates</h3><span class="status">One click restyles every slot. Captions, images and added elements stay.</span></div><div class="thumbs" id="tpls"></div></div>
+      <div class="card"><div class="head"><h3>Slots</h3><span class="status">Select a slot to edit it. 6 minimum, 8 maximum.</span></div><div class="thumbs" id="shots"></div></div>
+      <div class="card">
+        <div class="head"><h3 id="ed-title">Editor</h3><span class="status">Drag the text or the device on the preview to move it.</span></div>
+        <div class="editor">
+          <div class="edstage" id="edstage"></div>
+          <div class="ctl">
+            <label>Headline<input type="text" id="ed-h" data-e="h"></label>
+            <label>Supporting line<input type="text" id="ed-s" data-e="s"></label>
+            <label>Badge above the headline (optional)<input type="text" id="ed-b" data-e="b" placeholder="Example: Works offline"></label>
+            <div class="grid2"><label>Headline size<input type="range" id="ed-hs" data-e="hs" min="50" max="170"></label><label>Supporting line size<input type="range" id="ed-ss" data-e="ss" min="50" max="170"></label></div>
+            <div class="grid2"><label>Text align<select id="ed-al" data-e="al"><option value="">Automatic</option><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label><label>Caption position<select id="ed-lay" data-e="lay"><option value="">Same as all slots</option><option value="top">Above device</option><option value="bottom">Below device</option></select></label></div>
+            <div class="grid2"><label>Device size<input type="range" id="ed-ds" data-e="ds" min="50" max="150"></label><label>Device tilt<input type="range" id="ed-rot" data-e="rot" min="-20" max="20"></label></div>
+            <div class="rowf"><label class="row">Text<input type="color" id="ed-tc" data-e="tc"></label><label class="row">Background<input type="color" id="ed-c1" data-e="c1"><input type="color" id="ed-c2" data-e="c2" aria-label="Background color 2"></label><label class="row"><input type="checkbox" id="ed-frame" data-e="frame">Device frame</label></div>
+            <div class="rowf"><button class="sm" type="button" id="ed-img">Replace image</button><button class="sm" type="button" id="ed-prev">Move earlier</button><button class="sm" type="button" id="ed-next">Move later</button><button class="sm" type="button" id="ed-dup">Duplicate</button></div>
+            <div class="rowf"><button class="sm" type="button" id="ed-all">Apply this layout to all slots</button><button class="sm" type="button" id="ed-reset">Reset layout</button><button class="sm" type="button" id="ed-del">Delete slot</button></div>
+            <div class="rowf"><button class="sm" type="button" id="ed-limg">Image for this language only</button><button class="sm" type="button" id="ed-lrm">Remove language image</button></div>
+            <h3>Extra elements</h3>
+            <div class="rowf"><button class="sm" type="button" data-add="text">Add text</button><button class="sm" type="button" data-add="rect">Add box</button><button class="sm" type="button" data-add="circle">Add circle</button><button class="sm" type="button" data-add="emoji">Add emoji</button><button class="sm" type="button" data-add="img">Add image or logo</button></div>
+            <div id="elpanel" class="ctl" hidden>
+              <p class="status" id="el-name"></p>
+              <label data-for="text emoji">Content<input type="text" id="el-tx" data-el="tx"></label>
+              <div class="grid2">
+                <label data-for="text emoji circle">Size<input type="range" id="el-s" data-el="s" min="2" max="60"></label>
+                <label data-for="rect img">Width<input type="range" id="el-w" data-el="w" min="5" max="120"></label>
+                <label data-for="rect">Height<input type="range" id="el-h" data-el="h" min="2" max="120"></label>
+                <label data-for="rect">Corner roundness<input type="range" id="el-r" data-el="r" min="0" max="50"></label>
+                <label>Rotation<input type="range" id="el-rot" data-el="rot" min="-180" max="180"></label>
+                <label>Opacity<input type="range" id="el-o" data-el="o" min="5" max="100"></label>
+              </div>
+              <div class="rowf"><label class="row" data-for="text rect circle">Color<input type="color" id="el-c" data-el="c"></label><label class="row"><input type="checkbox" id="el-back" data-el="back">Behind the device</label></div>
+              <div class="rowf"><button class="sm" type="button" id="el-up">Bring forward</button><button class="sm" type="button" id="el-down">Send backward</button><button class="sm" type="button" id="el-del">Delete element</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="note">For tablet sets Google prefers captures taken on a tablet layout. If your app has a tablet UI, upload those captures and export the tablet sets from them.</p>
+    </section>
+
+    <!-- 7 LANGUAGES -->
+    <section id="languages">
+      <div><h2>Languages</h2><p class="lead">Translate the whole listing into any Play Store language. Switch the editing language from the menu on the left at any time: the listing text, every screenshot caption and the feature graphic follow it, and you can fine-tune each language by hand. Layout, colors and images are shared. Each language exports to its own folder.</p></div>
+      <div class="card">
+        <div class="rowf">
+          <select id="lg-add" style="width:auto" aria-label="Language to add"></select>
+          <button class="pri needs-ai" id="lg-tr" type="button">Add and translate</button>
+          <button id="lg-empty" type="button">Add without translating</button>
+          <span class="status" id="lg-status"></span>
+        </div>
+        <div class="tablewrap"><table id="lg-table"></table></div>
+      </div>
+    </section>
+
+    <!-- 8 EXPORT -->
+    <section id="export">
+      <div><h2>Check and export</h2><p class="lead">Everything Play Console asks for on the main store listing page, checked against Google's limits.</p></div>
+      <div class="cols">
+        <div class="card">
+          <h3>Listing preview</h3>
+          <div class="listing"><div class="mask" style="flex:none"><canvas id="ex-icon" width="144" height="144" style="width:72px"></canvas></div><div><div class="t" id="ex-title"></div><div class="s" id="ex-short"></div></div></div>
+          <h3>Requirements</h3>
+          <ul class="lint" id="checklist"></ul>
+        </div>
+        <div class="card">
+          <h3>Download</h3>
+          <p class="status">One ZIP with the store icon and launcher icons, plus one folder per language holding listing.txt, the feature graphic and every screenshot set.</p>
+          <div class="rowf"><button class="pri needs-dl" id="dlzip" type="button">Download complete listing ZIP</button><button data-copyall type="button" id="copyall">Copy all text</button></div>
+          <span class="status" id="ex-status"></span>
+          <div class="tablewrap"><table>
+            <tr><th>Asset</th><th>Size</th><th>Format</th></tr>
+            <tr><td>Store icon</td><td class="n">512 x 512</td><td>PNG</td></tr>
+            <tr><td>Launcher icons</td><td class="n">48 to 192</td><td>PNG, 5 densities</td></tr>
+            <tr><td>Feature graphic</td><td class="n">1024 x 500</td><td>JPEG</td></tr>
+            <tr><td>Phone screenshots</td><td class="n">1080 x 1920</td><td>JPEG</td></tr>
+            <tr><td>7-inch tablet</td><td class="n" id="t7size"></td><td>JPEG</td></tr>
+            <tr><td>10-inch tablet</td><td class="n" id="t10size"></td><td>JPEG</td></tr>
+          </table></div>
+        </div>
+      </div>
+      <div class="card"><div class="head"><h3>Google Play preview</h3><span class="status">Layout preview in the editing language. Rating and install numbers appear after publishing.</span></div><div class="play" id="play"></div></div>
+    </section>
+
+    <!-- 9 SETTINGS -->
+    <section id="settings">
+      <div><h2>Settings</h2><p class="lead">Connect Gemini for AI writing, manage your app projects and lock the site. Everything is stored in this browser only.</p></div>
+      <div class="cols">
+        <div class="card">
+          <h3>Gemini AI</h3>
+          <ul class="lint"><li>Open Google AI Studio and sign in with your Google account.</li><li>Press Create API key and copy it.</li><li>Paste it below and press Save and test.</li></ul>
+          <p><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Open Google AI Studio (aistudio.google.com/apikey)</a></p>
+          <label>Gemini API key<input type="password" id="g-key" autocomplete="off"></label>
+          <div class="rowf"><button class="pri" type="button" id="g-save">Save and test</button><button type="button" id="g-clear">Remove key</button></div>
+          <label>Model<select id="g-model"></select></label>
+          <span class="status" id="g-status"></span>
+          <p class="status">The key stays in this browser and is sent only to Google. If a model says its quota is used up, pick another one here; Flash-Lite models usually have the highest free limits.</p>
+        </div>
+        <div class="card">
+          <h3>App projects</h3>
+          <p class="status">One project per app. Switch between them with the App project menu on the left.</p>
+          <div class="rowf"><button class="pri" type="button" id="p-new">New app project</button><button type="button" id="p-dup">Duplicate this project</button><button type="button" id="p-del">Delete this project</button></div>
+          <div class="rowf"><button type="button" id="p-exp">Save project file</button><button type="button" id="p-imp">Open project file</button><input class="hidefile" type="file" id="projfile" accept=".json,application/json"></div>
+          <span class="status" id="p-status"></span>
+          <h3>Access lock</h3>
+          <p class="status">Type a passcode, press the button, then paste the line it gives into config.js in your GitHub repository. After that the site asks for the passcode before it opens.</p>
+          <div class="rowf"><input type="text" id="lk-pass" style="flex:1;min-width:140px" placeholder="Passcode" aria-label="Passcode"><button type="button" id="lk-make">Create lock line</button></div>
+          <textarea id="lk-out" rows="2" readonly aria-label="Line for config.js"></textarea>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="config.js"></script>
+<script src="jszip.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
